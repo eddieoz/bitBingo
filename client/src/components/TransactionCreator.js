@@ -10,7 +10,8 @@ const TransactionCreator = ({
   fileHash,
   txId,
   blockHash,
-  apiUrl
+  apiUrl,
+  onReset
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -45,11 +46,26 @@ const TransactionCreator = ({
       setError(null);
       setMessage(null);
 
+      // First submit the transaction ID
       const response = await axios.post(`${apiUrl}/submit-transaction`, {
         txId: submittedTxId.trim()
       });
       
-      setMessage('Transaction ID submitted successfully!');
+      // Immediately check the transaction status
+      const statusResponse = await axios.get(`${apiUrl}/check-transaction`);
+      
+      if (statusResponse.data.confirmed) {
+        setMessage(`Transaction confirmed in block! Confirmations: ${statusResponse.data.confirmations || 1}`);
+        onTransactionConfirmed(statusResponse.data);
+      } else if (statusResponse.data.status === 'pending') {
+        setMessage('Transaction found but not yet confirmed in a block. Try checking again later.');
+      } else if (statusResponse.data.status === 'not_found') {
+        setMessage('Transaction ID not found on the blockchain yet. It may still be propagating.');
+      } else if (statusResponse.data.status === 'invalid') {
+        setError('Transaction does not contain the correct IPFS hash');
+      }
+
+      // Update the parent component with the transaction ID
       onTransactionCreated(response.data);
     } catch (err) {
       console.error('Error submitting transaction ID:', err);
@@ -80,6 +96,31 @@ const TransactionCreator = ({
     } catch (err) {
       console.error('Error checking transaction status:', err);
       setError(`Error checking transaction: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setMessage(null);
+      
+      await axios.post(`${apiUrl}/reset`);
+      
+      // Reset local state
+      setSubmittedTxId('');
+      
+      // Notify parent component
+      if (onReset) {
+        onReset();
+      }
+      
+      setMessage('Raffle state reset successfully');
+    } catch (err) {
+      console.error('Error resetting raffle state:', err);
+      setError('Failed to reset raffle state');
     } finally {
       setLoading(false);
     }
@@ -132,21 +173,22 @@ const TransactionCreator = ({
             )}
             <div><strong>Status:</strong> {isConfirmed ? 'Confirmed' : 'Pending confirmation'}</div>
           </div>
-          {!isConfirmed && (
-            <Button 
-              variant="primary"
-              onClick={checkTransactionStatus}
-              disabled={loading}
-              className="mt-3"
-            >
-              {loading ? (
-                <>
-                  <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
-                  Checking...
-                </>
-              ) : 'Check Transaction Status'}
-            </Button>
-          )}
+          <div className="mt-3">
+            {!isConfirmed && (
+              <Button 
+                variant="primary"
+                onClick={checkTransactionStatus}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+                    Checking...
+                  </>
+                ) : 'Check Transaction Status'}
+              </Button>
+            )}
+          </div>
         </Card.Body>
       </Card>
     );

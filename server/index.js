@@ -334,6 +334,30 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Reset raffle state
+app.post('/api/reset', (req, res) => {
+  try {
+    // Reset the current raffle state
+    currentRaffle = {
+      filePath: null,
+      fileHash: null,
+      txId: null,
+      blockHash: null,
+      participants: [],
+      winner: null,
+      ipfsHash: null
+    };
+
+    res.json({
+      status: 'success',
+      message: 'Raffle state reset successfully'
+    });
+  } catch (error) {
+    console.error('Error resetting raffle state:', error);
+    res.status(500).json({ error: 'Server error while resetting raffle state' });
+  }
+});
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

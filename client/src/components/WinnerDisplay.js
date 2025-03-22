@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Alert, Spinner, Card, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
 
@@ -8,11 +8,19 @@ const WinnerDisplay = ({
   blockHash,
   participantCount,
   winner,
-  apiUrl
+  apiUrl,
+  onReset,
+  calculation
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [calculation, setCalculation] = useState(null);
+
+  // Reset internal state when onReset is called
+  useEffect(() => {
+    if (onReset) {
+      setError(null);
+    }
+  }, [onReset]);
 
   const calculateWinner = async () => {
     if (!blockHash) {
@@ -25,8 +33,6 @@ const WinnerDisplay = ({
       setError(null);
 
       const response = await axios.get(`${apiUrl}/calculate-winner`);
-      
-      setCalculation(response.data.calculation);
       onWinnerCalculated(response.data);
     } catch (err) {
       console.error('Error calculating winner:', err);

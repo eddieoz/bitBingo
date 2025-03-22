@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, Button, Badge, Row, Col } from 'react-bootstrap';
 
-const RaffleStatus = ({ raffleState, onRefresh }) => {
+const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
   const {
     fileUploaded,
     fileHash,
@@ -31,14 +31,25 @@ const RaffleStatus = ({ raffleState, onRefresh }) => {
     <Card>
       <Card.Header className="d-flex justify-content-between align-items-center">
         <span>Raffle Status</span>
-        <Button 
-          variant="outline-primary" 
-          size="sm" 
-          onClick={onRefresh}
-          disabled={loading}
-        >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </Button>
+        <div>
+          <Button 
+            variant="outline-primary" 
+            size="sm" 
+            onClick={onRefresh}
+            disabled={loading}
+            className="me-2"
+          >
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button 
+            variant="outline-danger" 
+            size="sm" 
+            onClick={onReset}
+            disabled={loading}
+          >
+            {loading ? 'Resetting...' : 'Reset'}
+          </Button>
+        </div>
       </Card.Header>
       <Card.Body>
         <Row>

@@ -22,7 +22,8 @@ function App() {
     winner: null,
     ipfsHash: null,
     loading: false,
-    error: null
+    error: null,
+    calculation: null
   });
 
   // Fetch initial status on component mount
@@ -77,8 +78,36 @@ function App() {
   const handleWinnerCalculated = (data) => {
     setRaffleState(prevState => ({
       ...prevState,
-      winner: data.winner
+      winner: data.winner,
+      calculation: data.calculation
     }));
+  };
+
+  const handleReset = async () => {
+    try {
+      setRaffleState(prevState => ({ ...prevState, loading: true }));
+      await axios.post(`${API_URL}/reset`);
+      setRaffleState({
+        fileUploaded: false,
+        fileHash: null,
+        participantCount: 0,
+        txId: null,
+        txConfirmed: false,
+        blockHash: null,
+        winner: null,
+        ipfsHash: null,
+        loading: false,
+        error: null,
+        calculation: null
+      });
+    } catch (error) {
+      console.error('Error resetting raffle:', error);
+      setRaffleState(prevState => ({
+        ...prevState,
+        loading: false,
+        error: 'Failed to reset raffle'
+      }));
+    }
   };
 
   return (
@@ -91,7 +120,11 @@ function App() {
 
         <Row className="mb-4">
           <Col>
-            <RaffleStatus raffleState={raffleState} onRefresh={fetchRaffleStatus} />
+            <RaffleStatus 
+              raffleState={raffleState} 
+              onRefresh={fetchRaffleStatus}
+              onReset={handleReset}
+            />
           </Col>
         </Row>
 
@@ -122,6 +155,7 @@ function App() {
                   txId={raffleState.txId}
                   blockHash={raffleState.blockHash}
                   apiUrl={API_URL}
+                  onReset={handleReset}
                 />
               </Card.Body>
             </Card>
@@ -140,6 +174,8 @@ function App() {
                   participantCount={raffleState.participantCount}
                   winner={raffleState.winner}
                   apiUrl={API_URL}
+                  onReset={handleReset}
+                  calculation={raffleState.calculation}
                 />
               </Card.Body>
             </Card>
