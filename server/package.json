@@ -1,0 +1,36 @@
+{
+  "name": "bitraffle-server",
+  "version": "1.0.0",
+  "description": "Backend for bitRaffle - a trustless blockchain raffle system",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bitcoin",
+    "blockchain",
+    "raffle",
+    "trustless"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "bech32": "^2.0.0",
+    "bitcoinjs-lib": "^6.1.7",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "csvtojson": "^2.0.10",
+    "dotenv": "^16.4.7",
+    "ecpair": "^3.0.0",
+    "express": "^4.21.2",
+    "form-data": "^4.0.2",
+    "multer": "^1.4.5-lts.2",
+    "tiny-secp256k1": "^2.2.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
