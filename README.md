@@ -26,6 +26,11 @@ A trustless, automated, blockchain-based raffle system that uses Bitcoin's block
  - Click **Sign** to authorize the transaction
  - Click **Broadcast** to send the transaction to the network
  - Copy the **Transaction ID** (txid) to the app for monitoring confirmation status
+    
+    Example:
+    ```
+    6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002
+    ```
 
 ## Requirements
 
