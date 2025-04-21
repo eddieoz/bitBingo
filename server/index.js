@@ -1,3 +1,5 @@
+const bip39 = require('bip39');
+const bitcoin = require('bitcoinjs-lib');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -7,11 +9,24 @@ const csvtojson = require('csvtojson');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
-const { bech32 } = require('bech32');
+const bip32 = require('@scure/bip32');
+const ecc = require('tiny-secp256k1')
+const { BIP32Factory } = require('bip32')
 require('dotenv').config();
-
+const bs58 = require('bs58');
 const app = express();
 const port = process.env.PORT || 5000;
+const network_version = {
+  mainnet: {
+    private: 0x04b2430c,
+    public: 0x04b24746,
+  },
+  testnet: {
+    private: 0x045f18bc,
+    public: 0x045f1cf6,
+  },
+};
+
 
 // Pinata configuration
 const PINATA_JWT = process.env.PINATA_JWT_KEY;
@@ -41,12 +56,12 @@ const upload = multer({ storage });
 async function uploadToPinata(filePath, fileName) {
   try {
     const fileStream = fs.createReadStream(filePath);
-    
+
     const formData = new FormData();
     formData.append('file', fileStream);
     formData.append('name', fileName);
     formData.append('network', 'public');
-    
+
     const response = await axios.post(PINATA_UPLOAD_URL, formData, {
       headers: {
         'Authorization': `Bearer ${PINATA_JWT}`,
@@ -98,13 +113,13 @@ app.post('/api/upload', upload.single('csvFile'), async (req, res) => {
         if (keys.length > 0) {
           participants[i].name = participants[i][keys[0]];
         } else {
-          participants[i].name = `Participant ${i+1}`;
+          participants[i].name = `Participant ${i + 1}`;
         }
       }
       // Add a ticket number for display purposes
       participants[i].ticket = (i + 1).toString();
     }
-    
+
     // Initialize raffle state without hash
     currentRaffle = {
       filePath,
@@ -119,22 +134,22 @@ app.post('/api/upload', upload.single('csvFile'), async (req, res) => {
     // Store file on IPFS via Pinata
     try {
       const fileName = path.basename(filePath);
-      
+
       // Upload to Pinata and get CID
       const response = await uploadToPinata(filePath, fileName);
       console.log('Pinata upload response:', response);
-      
+
       // Get the CID from the response
       const cid = response.data.cid;
       currentRaffle.ipfsHash = cid;
-      
+
       // Convert CID to hex for external reference
       const hexCID = Buffer.from(cid).toString('hex');
       currentRaffle.fileHash = hexCID;
-      
+
       // Return success with file info and gateway URL
       const publicUrl = `pink-manual-barnacle-530.mypinata.cloud/ipfs/${cid}`;
-      
+
       res.json({
         status: 'success',
         fileHash: currentRaffle.fileHash,
@@ -145,9 +160,9 @@ app.post('/api/upload', upload.single('csvFile'), async (req, res) => {
     } catch (ipfsError) {
       console.error('IPFS upload error:', ipfsError);
       // Return an error response to the client since IPFS storage is required
-      res.status(500).json({ 
-        error: 'Failed to store the file on IPFS via Pinata. Please try again.', 
-        details: ipfsError.message 
+      res.status(500).json({
+        error: 'Failed to store the file on IPFS via Pinata. Please try again.',
+        details: ipfsError.message
       });
     }
   } catch (error) {
@@ -161,7 +176,7 @@ app.get('/api/get-hex-cid', (req, res) => {
   if (!currentRaffle.ipfsHash || !currentRaffle.fileHash) {
     return res.status(400).json({ error: 'No file has been uploaded yet' });
   }
-  
+
   res.json({
     status: 'success',
     ipfsHash: currentRaffle.ipfsHash,
@@ -173,18 +188,18 @@ app.get('/api/get-hex-cid', (req, res) => {
 app.post('/api/submit-transaction', async (req, res) => {
   try {
     const { txId } = req.body;
-    
+
     if (!txId) {
       return res.status(400).json({ error: 'No transaction ID provided' });
     }
-    
+
     if (!currentRaffle.fileHash) {
       return res.status(400).json({ error: 'No file has been uploaded yet' });
     }
-    
+
     // Save the transaction ID
     currentRaffle.txId = txId;
-    
+
     res.json({
       status: 'success',
       txId: txId,
@@ -192,9 +207,9 @@ app.post('/api/submit-transaction', async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting transaction ID:', error);
-    res.status(500).json({ 
-      error: 'Server error while submitting transaction ID', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Server error while submitting transaction ID',
+      details: error.message
     });
   }
 });
@@ -214,13 +229,13 @@ app.get('/api/check-transaction', async (req, res) => {
       const txId = currentRaffle.txId;
       const network = process.env.BLOCKCYPHER_NETWORK || 'main';
       const txApiUrl = `https://api.blockcypher.com/v1/btc/${network}/txs/${txId}`;
-      
+
       console.log(`Checking transaction status from: ${txApiUrl}`);
       const response = await axios.get(txApiUrl);
-      
+
       // Verify OP_RETURN data matches our IPFS hash
       const scripts = response.data.outputs.map(output => output.script_type === 'null-data' ? output.data_hex : null).filter(Boolean);
-      
+
       if (!scripts.includes(currentRaffle.fileHash)) {
         return res.status(400).json({
           error: 'Transaction does not contain the correct IPFS hash in OP_RETURN',
@@ -229,11 +244,11 @@ app.get('/api/check-transaction', async (req, res) => {
       }
 
       const isConfirmed = response.data.confirmed && response.data.block_hash;
-      
+
       if (isConfirmed) {
         const blockHash = response.data.block_hash;
         currentRaffle.blockHash = blockHash;
-        
+
         res.json({
           status: 'success',
           txId: currentRaffle.txId,
@@ -252,7 +267,7 @@ app.get('/api/check-transaction', async (req, res) => {
       }
     } catch (apiError) {
       console.error('Error checking transaction via API:', apiError.response?.data || apiError.message);
-      
+
       // If we get a 404, the transaction doesn't exist (yet)
       if (apiError.response && apiError.response.status === 404) {
         res.json({
@@ -275,43 +290,82 @@ app.get('/api/check-transaction', async (req, res) => {
   }
 });
 
+function uint8ArrayToBigInt(bytes) {
+  let result = 0n;
+  for (const byte of bytes) {
+    result = (result << 8n) + BigInt(byte);
+  }
+  return result;
+}
 // Calculate winner from block hash
 app.get('/api/calculate-winner', async (req, res) => {
   try {
+
+    // Step 2: Generate mnemonic
+    console.log(currentRaffle.blockHash)
+    const mnemonic = bip39.entropyToMnemonic(currentRaffle.blockHash);
+    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    const bip32 = BIP32Factory(ecc)
+    const root = bip32.fromSeed(seed);
+    console.log("str",)
     if (!currentRaffle.blockHash || !currentRaffle.participants) {
       return res.status(400).json({ error: 'Missing block hash or participant data' });
+    }
+
+    let winnerCount = parseInt(req?.query?.winnerCount)
+
+    if (winnerCount < 1) {
+      winnerCount = 1
     }
 
     const blockHash = currentRaffle.blockHash;
     const participantCount = currentRaffle.participants.length;
 
-    // Calculate winner index using the algorithm from the requirements
-    const numericValue = parseInt(blockHash.slice(-8), 16);
-    const winnerIndex = numericValue % participantCount;
-
-    // Get the winner
-    const winner = currentRaffle.participants[winnerIndex];
-    // Ensure winner has the required properties
-    if (winner && typeof winner === 'object') {
-      if (!winner.name) {
-        winner.name = `Participant ${winnerIndex + 1}`;
-      }
-      if (!winner.ticket) {
-        winner.ticket = (winnerIndex + 1).toString();
-      }
+    if (winnerCount + 1 > participantCount) {
+      winnerCount = participantCount - 1
     }
-    currentRaffle.winner = winner;
+
+    currentRaffle.winner = []
+    let winnersArr = []
+    let pathIndex = 0
+    for (let i = 0; i < winnerCount; i++) {
+      let derivationPath = `m/44'/0'/0'/0/${pathIndex}`
+      let child = root.derivePath(derivationPath);
+      let numericValue = uint8ArrayToBigInt(child.privateKey)
+      pathIndex++
+      let winnerIndex = numericValue % BigInt(participantCount);
+      let winner = currentRaffle.participants[winnerIndex];
+      if (winner && typeof winner === 'object') {
+        if (!winner.name) {
+          winner.name = `Participant ${winnerIndex + 1}`;
+        }
+        if (!winner.ticket) {
+          winner.ticket = (winnerIndex + 1).toString();
+        }
+      }
+      while (winnersArr.indexOf(winner.name) > -1) {
+        pathIndex++
+        derivationPath = `m/44'/0'/0'/0/${pathIndex}`
+        child = root.derivePath(derivationPath)
+        numericValue = uint8ArrayToBigInt(child.privateKey)
+        winnerIndex = numericValue % BigInt(participantCount);
+        winner = currentRaffle.participants[winnerIndex]
+      }
+      winner.hashPart = numericValue.toString(16)
+      winner.derivationPath = derivationPath
+      winnersArr.push(winner.name)
+      currentRaffle.winner.push(winner);
+    }
+
+    console.log(currentRaffle.winner)
 
     res.json({
       status: 'success',
       blockHash,
-      winnerIndex,
-      winner,
+      winner: currentRaffle.winner,
       calculation: {
         blockHash,
-        numericValue,
         participantCount,
-        winnerIndex
       }
     });
   } catch (error) {

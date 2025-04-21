@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-
 import FileUpload from './components/FileUpload';
 import RaffleStatus from './components/RaffleStatus';
 import TransactionCreator from './components/TransactionCreator';
@@ -175,7 +174,7 @@ function App() {
                   winner={raffleState.winner}
                   apiUrl={API_URL}
                   onReset={handleReset}
-                  calculation={raffleState.calculation}
+                  raffle={raffleState}
                 />
               </Card.Body>
             </Card>
