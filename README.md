@@ -100,7 +100,7 @@ The raffle's results are verifiable using the confirmed transaction's block hash
     *   For each derived **Public Key**, take the **last 8 characters** of its hexadecimal representation.
     *   Convert these 8 characters to an integer.
     *   Calculate the winner index using the formula:
-        \[ \text{winner\_index} = \text{int}(\text{publicKey}[-8:], 16) \pmod{\text{participant\_count}} \]
+        ```winner_index = int(publicKey[-8:], 16) mod participant_count```
     *   The participant at this `winner_index` (0-based) in the list is the potential winner for this derivation step.
 
 4.  **Handle Duplicates**:
