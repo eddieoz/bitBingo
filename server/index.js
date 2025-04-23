@@ -302,12 +302,9 @@ app.get('/api/calculate-winner', async (req, res) => {
   try {
 
     // Step 2: Generate mnemonic
-    console.log(currentRaffle.blockHash)
-    const mnemonic = bip39.entropyToMnemonic(currentRaffle.blockHash);
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    console.log("blockHash:", currentRaffle.blockHash)
     const bip32 = BIP32Factory(ecc)
-    const root = bip32.fromSeed(seed);
-    console.log("str",)
+    const root = bip32.fromSeed(Buffer.from(currentRaffle.blockHash, 'hex'))
     if (!currentRaffle.blockHash || !currentRaffle.participants) {
       return res.status(400).json({ error: 'Missing block hash or participant data' });
     }
@@ -331,24 +328,24 @@ app.get('/api/calculate-winner', async (req, res) => {
     for (let i = 0; i < winnerCount; i++) {
       let derivationPath = `m/44'/0'/0'/0/${pathIndex}`
       let child = root.derivePath(derivationPath);
-      let numericValue = uint8ArrayToBigInt(child.privateKey)
+      let numericValue = uint8ArrayToBigInt(child.publicKey)
       pathIndex++
-      let winnerIndex = numericValue % BigInt(participantCount);
+      let winnerIndex = parseInt(numericValue.toString(16).slice(-8), 16) % participantCount;
       let winner = currentRaffle.participants[winnerIndex];
       if (winner && typeof winner === 'object') {
         if (!winner.name) {
-          winner.name = `Participant ${winnerIndex + 1}`;
+          winner.name = `Participant ${winnerIndex}`;
         }
         if (!winner.ticket) {
-          winner.ticket = (winnerIndex + 1).toString();
+          winner.ticket = (winnerIndex).toString();
         }
       }
       while (winnersArr.indexOf(winner.name) > -1) {
         pathIndex++
         derivationPath = `m/44'/0'/0'/0/${pathIndex}`
         child = root.derivePath(derivationPath)
-        numericValue = uint8ArrayToBigInt(child.privateKey)
-        winnerIndex = numericValue % BigInt(participantCount);
+        numericValue = uint8ArrayToBigInt(child.publicKey)
+        winnerIndex = parseInt(numericValue.toString(16).slice(-8), 16) % participantCount;
         winner = currentRaffle.participants[winnerIndex]
       }
       winner.hashPart = numericValue.toString(16)
