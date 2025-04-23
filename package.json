@@ -22,9 +22,15 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
+    "@scure/bip32": "^1.6.2",
     "all": "0.0.0",
     "bech32": "^2.0.0",
+    "bip32": "^5.0.0-rc.0",
+    "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.7",
-    "ipfs-http-client": "^60.0.1"
-  }
+    "bs58": "^6.0.0",
+    "ipfs-http-client": "^60.0.1",
+    "tiny-secp256k1": "^2.2.3"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
