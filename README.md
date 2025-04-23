@@ -8,8 +8,8 @@ A trustless, automated, blockchain-based raffle system that uses Bitcoin's block
 2. **IPFS Storage**: The system uploads the CSV file to IPFS and converts the CID to hex format
 3. **External Transaction**: Create a Bitcoin transaction (in your own wallet) with the hex CID in an OP_RETURN output, and submit the transaction ID to the app
 4. **Transaction Monitoring**: The app monitors the Bitcoin transaction until it's confirmed in a block and retrieves the blockhash
-5. **Drawing Winner**: The winner is determined using the last 8 characters of the blockhash through a mathematical calculation
-6. **Verification**: Anyone can verify the winner by performing the same calculation with the public blockhash
+5. **Drawing Winners**: The specified number of winners are determined using BIP32 key derivation. The blockhash serves as the seed, and winners are selected based on calculations involving the derived public keys.
+6. **Verification**: Anyone can verify the winners by replicating the BIP32 derivation and calculations using the public blockhash and participant list.
 
 ## Tips on creating the transaction on Electrum
  - Go to the **Send** tab
@@ -84,11 +84,34 @@ Bob Johnson
 
 ## Verification
 
-To verify a drawing:
-1. Get the block hash containing the transaction (can be verified on any blockchain explorer)
-2. Get the participant count from the CSV file
-3. Perform the calculation: `winner_index = int(block_hash[-8:], 16) % participant_count`
-4. The participant at index `winner_index` (zero-based) is the winner
+The raffle's results are verifiable using the confirmed transaction's block hash and the participant list. The process leverages BIP32 Hierarchical Deterministic Wallets, using the block hash as the seed.
+
+1.  **Obtain Data**:
+    *   Get the **Block Hash** of the block containing the raffle transaction (this can be found on any Bitcoin block explorer using the transaction ID).
+    *   Get the **Participant List** (CSV file) used for the raffle. Note the total **Participant Count**.
+    *   Note the **Number of Winners** drawn.
+
+2.  **BIP32 Derivation**:
+    *   Use the **Block Hash** as the **BIP39 Seed** (in hex format).
+    *   Derive keys using the **BIP44 path** structure: `m/44'/0'/0'/0/i`, where `i` starts at `0` and increments for each winner to be drawn.
+    *   For each derivation path, obtain the corresponding **Public Key**.
+
+3.  **Calculate Winner Index**:
+    *   For each derived **Public Key**, take the **last 8 characters** of its hexadecimal representation.
+    *   Convert these 8 characters to an integer.
+    *   Calculate the winner index using the formula:
+        \[ \text{winner\_index} = \text{int}(\text{publicKey}[-8:], 16) \pmod{\text{participant\_count}} \]
+    *   The participant at this `winner_index` (0-based) in the list is the potential winner for this derivation step.
+
+4.  **Handle Duplicates**:
+    *   If a participant is selected more than once, the derivation index `i` is incremented, and a new public key is derived until a unique winner is found. This ensures each participant can only win once per raffle.
+
+5.  **Verify with Ian Coleman Tool**:
+    *   You can cross-reference the derivation process using the [Ian Coleman BIP39 tool](https://iancoleman.io/bip39/).
+    *   Paste the **Block Hash** (hex) into the "**BIP39 Seed**" field.
+    *   Select the "**BIP44**" tab for the derivation path.
+    *   Under "**Derived Addresses**", observe the public keys generated for paths `m/44'/0'/0'/0/0`, `m/44'/0'/0'/0/1`, etc.
+    *   Compare these public keys and perform the calculation described in step 3 to verify each winner selection.
 
 ## Development
 
