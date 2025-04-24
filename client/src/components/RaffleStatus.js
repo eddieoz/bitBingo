@@ -78,11 +78,11 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
             )}
           </Col>
           <Col md={4} className="mb-3">
-            <h6>Winner {getStatusBadge(winner !== null, 'Drawn')}</h6>
-            {winner && (
+            <h6>Winner {getStatusBadge(winner !== null && winner.length > 0, 'Drawn')}</h6>
+            {winner && winner.length > 0 && (
               <div className="small">
-                <div>Name: {winner.name || 'Unknown'}</div>
-                <div>Ticket #: {winner.ticket || 'N/A'}</div>
+                <div>Name: {winner[0].name || 'Unknown'}</div>
+                <div>Ticket #: {winner[0].ticket || 'N/A'}</div>
               </div>
             )}
           </Col>
