@@ -15,6 +15,7 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
   } = raffleState;
 
   const [copyButtonText, setCopyButtonText] = useState('Copy');
+  const ipfsGatewayBase = process.env.REACT_APP_PINATA_PUBLIC_GATEWAY_BASE || 'https://ipfs.io/ipfs/';
 
   const getStatusBadge = (completed, text) => {
     return (
@@ -74,12 +75,12 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
                 <div>Hex CID: {truncateHash(fileHash)}</div>
                 {ipfsHash && (
                   <div>
-                    IPFS: <a href={`https://ipfs.io/ipfs/${ipfsHash}`} target="_blank" rel="noopener noreferrer">{truncateHash(ipfsHash)}</a>
+                    IPFS: <a href={`${ipfsGatewayBase}${ipfsHash}`} target="_blank" rel="noopener noreferrer">{truncateHash(ipfsHash)}</a>
                     <Button
                       variant="outline-secondary"
                       size="sm"
                       className="ms-2 py-0 px-1"
-                      onClick={() => handleCopy(`https://ipfs.io/ipfs/${ipfsHash}`)}
+                      onClick={() => handleCopy(`${ipfsGatewayBase}${ipfsHash}`)}
                     >
                       {copyButtonText}
                     </Button>

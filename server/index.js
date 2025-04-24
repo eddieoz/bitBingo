@@ -32,7 +32,7 @@ const network_version = {
 const PINATA_JWT = process.env.PINATA_JWT_KEY;
 const PINATA_UPLOAD_URL = 'https://uploads.pinata.cloud/v3/files';
 // Use environment variable for public gateway, fallback to a default
-const PINATA_PUBLIC_GATEWAY_BASE = process.env.PINATA_PUBLIC_GATEWAY_BASE || 'https://gateway.pinata.cloud/ipfs';
+const PINATA_PUBLIC_GATEWAY_BASE = process.env.PINATA_PUBLIC_GATEWAY_BASE || 'https://ipfs.io/ipfs';
 // Use environment variable for BlockCypher API base, fallback to default
 const BLOCKCYPHER_API_BASE_URL = process.env.BLOCKCYPHER_API_BASE_URL || 'https://api.blockcypher.com/v1';
 
