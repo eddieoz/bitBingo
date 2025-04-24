@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Button, Badge, Row, Col } from 'react-bootstrap';
 
 const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
@@ -14,6 +14,8 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
     loading
   } = raffleState;
 
+  const [copyButtonText, setCopyButtonText] = useState('Copy');
+
   const getStatusBadge = (completed, text) => {
     return (
       <Badge bg={completed ? 'success' : 'secondary'}>
@@ -25,6 +27,17 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
   const truncateHash = (hash) => {
     if (!hash) return '';
     return hash.substring(0, 8) + '...' + hash.substring(hash.length - 8);
+  };
+
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyButtonText('Copied!');
+      setTimeout(() => setCopyButtonText('Copy'), 2000); // Reset after 2 seconds
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+      setCopyButtonText('Error');
+      setTimeout(() => setCopyButtonText('Copy'), 2000);
+    });
   };
 
   return (
@@ -62,6 +75,14 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
                 {ipfsHash && (
                   <div>
                     IPFS: <a href={`https://ipfs.io/ipfs/${ipfsHash}`} target="_blank" rel="noopener noreferrer">{truncateHash(ipfsHash)}</a>
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      className="ms-2 py-0 px-1"
+                      onClick={() => handleCopy(`https://ipfs.io/ipfs/${ipfsHash}`)}
+                    >
+                      {copyButtonText}
+                    </Button>
                   </div>
                 )}
               </div>
