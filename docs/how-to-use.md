@@ -66,7 +66,7 @@ You need to create a special Bitcoin transaction that includes your raffle data.
 
 1. Return to [https://bitraffle.sats4.life](https://bitraffle.sats4.life)
 2. Enter the Transaction ID in the designated field
-3. Click "Start Monitoring"
+3. Click "Submit" to start monitoring
 
 ### Step 5: Wait for Blockchain Confirmation
 
