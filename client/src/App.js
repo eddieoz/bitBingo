@@ -116,7 +116,7 @@ function App() {
       <Container>
         <header className="App-header my-4">
           <h1>bitRaffle</h1>
-          <p className="lead">Trustless and verifiable blockchain-based raffle system</p>
+          <p className="lead">Trustless and verifiable Bitcoin-based raffle system</p>
         </header>
 
         <Row className="mb-4">

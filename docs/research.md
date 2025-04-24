@@ -1,6 +1,6 @@
 # Projects Using Similar Protocols and Principles to bitRaffle
 
-The bitRaffle whitepaper introduces a trustless blockchain-based raffle system that leverages Bitcoin's infrastructure and IPFS for transparent, verifiable lottery drawings. Upon examination of this technical approach, several existing projects employ similar protocols and principles. This report identifies and analyzes these comparable implementations across the blockchain ecosystem.
+The bitRaffle whitepaper introduces a trustless Bitcoin-based raffle system that leverages Bitcoin's infrastructure and IPFS for transparent, verifiable lottery drawings. Upon examination of this technical approach, several existing projects employ similar protocols and principles. This report identifies and analyzes these comparable implementations across the blockchain ecosystem.
 
 ## 1. Core Technologies in bitRaffle
 
@@ -12,7 +12,7 @@ Before examining similar projects, it's important to identify the key technical 
 4. Transparent verification mechanisms
 5. Deterministic winner selection algorithms
 
-## 2. Blockchain-Based Lottery and Raffle Systems
+## 2. Bitcoin-Based Lottery and Raffle Systems
 
 Several projects share bitRaffle's fundamental approach of using blockchain technology to create transparent and verifiable raffle systems:
 
@@ -93,7 +93,7 @@ The analysis reveals numerous projects that share core principles with bitRaffle
 3. The approach to participant registration and ticket representation
 4. The integration of decentralized storage (IPFS vs. alternatives)
 
-These projects collectively demonstrate that bitRaffle's approach aligns with emerging best practices in blockchain-based random selection systems while offering a unique implementation focused on Bitcoin's ecosystem. The consistent themes across all these projects – eliminating trusted third parties, providing transparent verification mechanisms, and leveraging decentralized technologies – confirm the validity of bitRaffle's technical approach and suggest potential collaboration or integration opportunities as the ecosystem matures.
+These projects collectively demonstrate that bitRaffle's approach aligns with emerging best practices in Bitcoin-based random selection systems while offering a unique implementation focused on Bitcoin's ecosystem. The consistent themes across all these projects – eliminating trusted third parties, providing transparent verification mechanisms, and leveraging decentralized technologies – confirm the validity of bitRaffle's technical approach and suggest potential collaboration or integration opportunities as the ecosystem matures.
 
 ## 7. References
 

@@ -1,4 +1,4 @@
-# bitRaffle: A Trustless Blockchain-Based Raffle System
+# bitRaffle: A Trustless Bitcoin-Based Raffle System
 
 ## Abstract
 

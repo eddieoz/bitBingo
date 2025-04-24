@@ -1,6 +1,6 @@
 # bitRaffle
 
-A trustless, automated, blockchain-based raffle system that uses Bitcoin's blockchain to provide transparent and verifiable raffle drawings that cannot be manipulated.
+A trustless, automated, Bitcoin-based raffle system that uses Bitcoin's blockchain to provide transparent and verifiable raffle drawings that cannot be manipulated.
 
 ## How It Works
 

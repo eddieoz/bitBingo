@@ -1,7 +1,7 @@
 {
   "name": "bitraffle",
   "version": "1.0.0",
-  "description": "A trustless, automated, blockchain-based raffle system",
+  "description": "A trustless, automated, Bitcoin-based raffle system",
   "main": "index.js",
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
