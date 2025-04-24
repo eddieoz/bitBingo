@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "bitRaffle",
+  "name": "bitRaffle - Bitcoin Raffle System",
   "icons": [
     {
       "src": "favicon.ico",
