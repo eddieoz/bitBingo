@@ -31,6 +31,10 @@ const network_version = {
 // Pinata configuration
 const PINATA_JWT = process.env.PINATA_JWT_KEY;
 const PINATA_UPLOAD_URL = 'https://uploads.pinata.cloud/v3/files';
+// Use environment variable for public gateway, fallback to a default
+const PINATA_PUBLIC_GATEWAY_BASE = process.env.PINATA_PUBLIC_GATEWAY_BASE || 'https://gateway.pinata.cloud/ipfs';
+// Use environment variable for BlockCypher API base, fallback to default
+const BLOCKCYPHER_API_BASE_URL = process.env.BLOCKCYPHER_API_BASE_URL || 'https://api.blockcypher.com/v1';
 
 // Setup middleware
 app.use(cors());
@@ -148,7 +152,8 @@ app.post('/api/upload', upload.single('csvFile'), async (req, res) => {
       currentRaffle.fileHash = hexCID;
 
       // Return success with file info and gateway URL
-      const publicUrl = `pink-manual-barnacle-530.mypinata.cloud/ipfs/${cid}`;
+      // Use the configured public gateway base URL
+      const publicUrl = `${PINATA_PUBLIC_GATEWAY_BASE}/${cid}`;
 
       res.json({
         status: 'success',
@@ -228,7 +233,8 @@ app.get('/api/check-transaction', async (req, res) => {
     try {
       const txId = currentRaffle.txId;
       const network = process.env.BLOCKCYPHER_NETWORK || 'main';
-      const txApiUrl = `https://api.blockcypher.com/v1/btc/${network}/txs/${txId}`;
+      // Use the configured BlockCypher base URL
+      const txApiUrl = `${BLOCKCYPHER_API_BASE_URL}/btc/${network}/txs/${txId}`;
 
       console.log(`Checking transaction status from: ${txApiUrl}`);
       const response = await axios.get(txApiUrl);

@@ -162,6 +162,44 @@ The raffle's results are verifiable using the confirmed transaction's block hash
 - Ensure CSV files are properly formatted to avoid errors
 - The app uses real blockchain data for drawing winners, not simulated values
 
+## Deployment
+
+To deploy bitRaffle to a demo or production environment, consider the following:
+
+1.  **Environment Variables**: Configure the necessary environment variables in your deployment environment. These are typically set through the hosting provider's interface.
+    *   `server/.env`:
+        *   `NODE_ENV`: Set to `production` for optimized performance and security.
+        *   `PINATA_JWT_KEY`: **Required**. Your secret JWT key from Pinata for IPFS uploads.
+        *   `PORT`: Your hosting provider might set this automatically. The server will use `process.env.PORT` if available, otherwise defaulting to `5000`.
+        *   `BLOCKCYPHER_NETWORK`: (Optional) Set to `main` or `testnet`. Defaults to `main`.
+        *   `BLOCKCYPHER_API_BASE_URL`: (Optional) Override the default BlockCypher API endpoint (`https://api.blockcypher.com/v1`).
+        *   `PINATA_PUBLIC_GATEWAY_BASE`: (Optional) Set the base URL for public IPFS links generated (e.g., `https://ipfs.io/ipfs`). Defaults to `https://gateway.pinata.cloud/ipfs`.
+    *   Client Build:
+        *   `REACT_APP_API_URL`: **Required**. The full URL to your deployed backend API (e.g., `https://your-demo-site.com/api`). This needs to be available during the *client build process*.
+
+2.  **Build Client**: The React frontend needs to be built into static assets.
+    ```bash
+    cd client
+    # Set the API URL environment variable for the build
+    REACT_APP_API_URL=https://your-backend-url/api npm run build
+    cd ..
+    ```
+    The static files will be in `client/build/`.
+
+3.  **Server Deployment**: Deploy the `server/` directory.
+    *   Ensure only production dependencies are installed (`npm ci --only=production` inside the `server` directory).
+    *   Start the server using `node index.js`.
+    *   Make sure the server can access the configured `PORT`.
+
+4.  **Serving Client Assets**: The static client assets (`client/build/`) need to be served.
+    *   Option A: Configure the Node.js server (in `server/index.js`) to serve static files from the `client/build` directory.
+    *   Option B: Use a reverse proxy (like Nginx or your hosting platform's equivalent) to serve the static files and route API requests (e.g., `/api/*`) to the Node.js backend.
+
+5.  **Dockerfile for Production**: If using Docker, adapt the `Dockerfile` and `docker-compose.yml` for production.
+    *   Use a multi-stage build: Stage 1 builds the client, Stage 2 copies server code, installs *production* dependencies, copies client build artifacts, and sets the `CMD` to `node index.js`.
+    *   Do not mount local volumes for code in production.
+    *   Ensure environment variables are passed correctly to the container.
+
 ## License
 
 MIT 

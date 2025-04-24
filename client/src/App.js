@@ -8,7 +8,8 @@ import TransactionCreator from './components/TransactionCreator';
 import WinnerDisplay from './components/WinnerDisplay';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+// Use REACT_APP_ environment variable for the API URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function App() {
   const [raffleState, setRaffleState] = useState({
