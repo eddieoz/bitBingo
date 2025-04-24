@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  bitraffle:
+    build: .
+    container_name: bitraffle_app
+    ports:
+      # Map host ports to container ports
+      # Format: HOST:CONTAINER
+      - "5000:5000" # Server port
+      - "3000:3000" # Client port
+    volumes:
+      # Mount the code for development (optional, remove for production)
+      # Exclude node_modules to use the ones installed in the container
+      - .:/app
+      - /app/node_modules
+      - /app/client/node_modules
+      - /app/server/node_modules
+    environment:
+      # Add any necessary environment variables here
+      # Example: NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true # Often needed for hot-reloading within Docker
+    command: npm start

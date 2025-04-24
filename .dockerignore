@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.DS_Store
+*.log
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+README.md
+LICENSE
+client/node_modules
+server/node_modules
+docs/
+client/build # Assuming client build output goes here, adjust if different 

@@ -70,6 +70,40 @@ npm start
 
 2. Access the application at http://localhost:3000
 
+## Running with Docker
+
+Alternatively, you can run the application using Docker and Docker Compose.
+
+**Prerequisites:**
+- Docker installed
+- Docker Compose installed
+
+**Steps:**
+
+1.  **Configure Environment Variables:**
+    Ensure you have a `.env` file in the `server/` directory with your `PINATA_JWT_KEY`, as described in the Installation section. The Docker setup mounts the local directory, so this file will be used by the container.
+    ```
+    # server/.env
+    PORT=5000
+    NODE_ENV=development
+    PINATA_JWT_KEY=your_pinata_jwt_key_here
+    ```
+
+2.  **Build the Docker Image:**
+    ```bash
+    docker compose build
+    ```
+
+3.  **Run the Application:**
+    ```bash
+    docker compose up
+    ```
+    This command will start both the client and server services.
+
+4.  **Access the Application:**
+    - Client UI: [http://localhost:3000](http://localhost:3000)
+    - Server API (for client requests): [http://localhost:5000](http://localhost:5000)
+
 ## CSV Format
 
 The CSV file should contain participant information with one ticket per line. The first line should be a header row.
