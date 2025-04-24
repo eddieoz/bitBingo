@@ -1,0 +1,22 @@
+.app-footer {
+  background-color: #f8f9fa; /* Light grey background */
+  padding: 1rem;
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6c757d; /* Grey text color */
+  border-top: 1px solid #dee2e6; /* Light grey border top */
+}
+
+.app-footer p {
+  margin: 0.5rem 0;
+}
+
+.app-footer a {
+  color: #007bff; /* Blue link color */
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  text-decoration: underline;
+} 

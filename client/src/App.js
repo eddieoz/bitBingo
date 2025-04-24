@@ -6,6 +6,7 @@ import FileUpload from './components/FileUpload';
 import RaffleStatus from './components/RaffleStatus';
 import TransactionCreator from './components/TransactionCreator';
 import WinnerDisplay from './components/WinnerDisplay';
+import Footer from './components/Footer';
 import axios from 'axios';
 
 // Use REACT_APP_ environment variable for the API URL
@@ -182,6 +183,7 @@ function App() {
           </Col>
         </Row>
       </Container>
+      <Footer />
     </div>
   );
 }
