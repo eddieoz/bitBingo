@@ -44,7 +44,10 @@ const RaffleStatus = ({ raffleState, onRefresh, onReset }) => {
   return (
     <Card>
       <Card.Header className="d-flex justify-content-between align-items-center">
-        <span>Raffle Status</span>
+        <span>
+          Raffle Status
+          <a href="https://github.com/eddieoz/bitRaffle/blob/master/docs/how-to-use.md" target="_blank" rel="noopener noreferrer" className="ms-2 small">(How to Use)</a>
+        </span>
         <div>
           <Button 
             variant="outline-primary" 
