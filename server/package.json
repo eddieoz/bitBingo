@@ -1,12 +1,12 @@
 {
-  "name": "bitraffle-server",
+  "name": "bitBingo-server",
   "version": "1.0.0",
-  "description": "Backend for bitRaffle - a trustless blockchain raffle system",
+  "description": "Backend for bitBingo - a trustless blockchain raffle system",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [
     "bitcoin",
@@ -20,6 +20,7 @@
     "axios": "^1.8.4",
     "bech32": "^2.0.0",
     "bitcoinjs-lib": "^6.1.7",
+    "cids": "^1.1.9",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "csvtojson": "^2.0.10",
@@ -31,6 +32,9 @@
     "tiny-secp256k1": "^2.2.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
-  }
+    "nodemon": "^3.1.9",
+    "supertest": "^6.3.3",
+    "vitest": "^1.0.0"
+  },
+  "packageManager": "pnpm@8.15.4"
 }

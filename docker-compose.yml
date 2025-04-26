@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  bitraffle:
+  bitBingo:
     build: .
-    container_name: bitraffle_app
+    container_name: bitBingo_app
     ports:
       # Map host ports to container ports
       # Format: HOST:CONTAINER

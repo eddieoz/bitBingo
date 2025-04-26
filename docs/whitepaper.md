@@ -1,18 +1,18 @@
-# bitRaffle: A Trustless Bitcoin-Based Raffle System
+# bitBingo: A Trustless Bitcoin-Based Raffle System
 
 ## Abstract
 
-bitRaffle is an innovative raffle system that leverages Bitcoin's blockchain infrastructure to ensure transparent, verifiable, and tamper-proof raffle drawings. By integrating blockchain technology with decentralized storage solutions, bitRaffle eliminates the need for trusted intermediaries in conducting fair raffles. This white paper outlines the technical approach, value proposition, security considerations, and future development roadmap for the bitRaffle platform.
+bitBingo is an innovative raffle system that leverages Bitcoin's blockchain infrastructure to ensure transparent, verifiable, and tamper-proof raffle drawings. By integrating blockchain technology with decentralized storage solutions, bitBingo eliminates the need for trusted intermediaries in conducting fair raffles. This white paper outlines the technical approach, value proposition, security considerations, and future development roadmap for the bitBingo platform.
 
 ## 1. Introduction
 
-Traditional raffle systems suffer from transparency issues, centralized control, and potential manipulation. Even when conducted honestly, participants often lack the means to independently verify the fairness of the drawing process. bitRaffle addresses these limitations by harnessing blockchain technology to create a trustless raffle system where every step is transparent, verifiable, and immutable.
+Traditional raffle systems suffer from transparency issues, centralized control, and potential manipulation. Even when conducted honestly, participants often lack the means to independently verify the fairness of the drawing process. bitBingo addresses these limitations by harnessing blockchain technology to create a trustless raffle system where every step is transparent, verifiable, and immutable.
 
 ## 2. Technical Approach
 
 ### 2.1 System Architecture
 
-bitRaffle employs a client-server architecture with the following key components:
+bitBingo employs a client-server architecture with the following key components:
 
 1. **Client Application**: A React-based web interface that guides users through the raffle process, from participant upload to winner selection.
 
@@ -46,7 +46,7 @@ The raffle process consists of three primary steps:
 
 ### 2.3 Verification Mechanism
 
-A core feature of bitRaffle is its transparent verification process:
+A core feature of bitBingo is its transparent verification process:
 - Anyone can independently verify the winner by obtaining the block hash from any Bitcoin explorer.
 - The same mathematical calculation can be performed manually using the block hash and participant count.
 - The IPFS-stored participant list can be accessed via any IPFS gateway using the CID.
@@ -55,7 +55,7 @@ A core feature of bitRaffle is its transparent verification process:
 
 ### 3.1 Eliminating Trust Requirements
 
-bitRaffle removes the need to trust a central authority by:
+bitBingo removes the need to trust a central authority by:
 - Using immutable blockchain data as the source of randomness.
 - Ensuring all participant data is publicly accessible but cryptographically secured.
 - Making the winner selection algorithm transparent and deterministic.
@@ -69,7 +69,7 @@ The system provides unprecedented levels of fairness:
 
 ### 3.3 Applicability Across Industries
 
-bitRaffle's approach can be valuable in multiple sectors:
+bitBingo's approach can be valuable in multiple sectors:
 - **Gaming and Contests**: Providing verifiable fairness in prize drawings.
 - **Resource Allocation**: Fair distribution of limited resources or opportunities.
 - **Governance**: Transparent selection processes for roles or responsibilities.
@@ -79,7 +79,7 @@ bitRaffle's approach can be valuable in multiple sectors:
 
 ### 4.1 Data Privacy
 
-While bitRaffle ensures transparency, it also raises privacy considerations:
+While bitBingo ensures transparency, it also raises privacy considerations:
 - Participant data stored on IPFS is publicly accessible.
 - Users should be mindful about the personal information included in participant files.
 - Future improvements could incorporate privacy-preserving techniques while maintaining verifiability.
@@ -122,9 +122,9 @@ The dependence on blockchain confirmation introduces timing factors:
 
 ## 6. Conclusion
 
-bitRaffle represents a significant advancement in raffle systems by leveraging blockchain technology to create a truly trustless, transparent, and verifiable process. By combining Bitcoin's immutability with decentralized storage, the platform eliminates the need for trusted intermediaries while providing unprecedented levels of fairness and verification.
+bitBingo represents a significant advancement in raffle systems by leveraging blockchain technology to create a truly trustless, transparent, and verifiable process. By combining Bitcoin's immutability with decentralized storage, the platform eliminates the need for trusted intermediaries while providing unprecedented levels of fairness and verification.
 
-The current implementation serves as a foundation for future enhancements that could extend functionality, improve user experience, and broaden the application's scope across various industries. As blockchain technology continues to mature, bitRaffle is positioned to evolve alongside it, offering increasingly sophisticated solutions for fair and transparent selection processes.
+The current implementation serves as a foundation for future enhancements that could extend functionality, improve user experience, and broaden the application's scope across various industries. As blockchain technology continues to mature, bitBingo is positioned to evolve alongside it, offering increasingly sophisticated solutions for fair and transparent selection processes.
 
 ## 7. References
 

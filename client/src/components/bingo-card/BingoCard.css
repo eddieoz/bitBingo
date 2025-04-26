@@ -1,0 +1,33 @@
+.bingo-card-wrapper .card-header {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+}
+
+.bingo-card-table {
+    table-layout: fixed; /* Ensures columns are evenly spaced */
+    width: 100%;
+    aspect-ratio: 1 / 1; /* Make table roughly square */
+    font-size: clamp(0.8rem, 3vw, 1.2rem); /* Responsive font size */
+    font-weight: bold;
+    text-align: center;
+    vertical-align: middle;
+    border-collapse: collapse; /* Ensure borders look right */
+}
+
+.bingo-card-table th,
+.bingo-card-table td {
+    border: 1px solid #dee2e6; /* Standard bootstrap border */
+    padding: 0.1rem; /* Minimal padding */
+    height: 20%; /* Equal height rows */
+    width: 20%; /* Equal width columns */
+}
+
+.bingo-card-table th {
+    background-color: #f8f9fa; /* Light grey header */
+}
+
+.bingo-card-table td.free-space {
+    background-color: #e9ecef; /* Slightly darker grey for free space */
+    color: #495057;
+    font-size: clamp(0.7rem, 2.5vw, 1rem);
+} 

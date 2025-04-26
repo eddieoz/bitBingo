@@ -14,8 +14,16 @@ const ecc = require('tiny-secp256k1')
 const { BIP32Factory } = require('bip32')
 require('dotenv').config();
 const bs58 = require('bs58');
+const CID = require('cids');
+const { derivePublicKey, generateBingoCard } = require('./utils'); // Import helper functions
 const app = express();
 const port = process.env.PORT || 5000;
+
+// --- BEGIN Add Cache ---
+// In-memory cache for game session data (keyed by txId)
+const gameSessionCache = new Map();
+// --- END Add Cache ---
+
 const network_version = {
   mainnet: {
     private: 0x04b2430c,
@@ -233,49 +241,51 @@ app.get('/api/check-transaction', async (req, res) => {
     try {
       const txId = currentRaffle.txId;
       const network = process.env.BLOCKCYPHER_NETWORK || 'main';
-      // Use the configured BlockCypher base URL
       const txApiUrl = `${BLOCKCYPHER_API_BASE_URL}/btc/${network}/txs/${txId}`;
 
       console.log(`Checking transaction status from: ${txApiUrl}`);
       const response = await axios.get(txApiUrl);
+      const txData = response.data;
 
-      // Verify OP_RETURN data matches our IPFS hash
-      const scripts = response.data.outputs.map(output => output.script_type === 'null-data' ? output.data_hex : null).filter(Boolean);
+      // Verify OP_RETURN data matches our expected hex CID
+      // currentRaffle.fileHash stores the hex representation of the string CID
+      const opReturnOutputs = txData.outputs.filter(output => output.script_type === 'null-data');
+      const opReturnDataHex = opReturnOutputs.length > 0 ? opReturnOutputs[0].data_hex : null;
 
-      if (!scripts.includes(currentRaffle.fileHash)) {
+      // Compare the raw hex data found with the expected hex representation of the CID string
+      if (opReturnDataHex !== currentRaffle.fileHash) {
+        console.error(`OP_RETURN mismatch: Expected ${currentRaffle.fileHash}, Found ${opReturnDataHex}`);
         return res.status(400).json({
-          error: 'Transaction does not contain the correct IPFS hash in OP_RETURN',
+          error: 'Transaction does not contain the correct IPFS hash hex in OP_RETURN',
           status: 'invalid'
         });
       }
 
-      const isConfirmed = response.data.confirmed && response.data.block_hash;
-
-      if (isConfirmed) {
-        const blockHash = response.data.block_hash;
-        currentRaffle.blockHash = blockHash;
-
+      // Check confirmation status
+      if (txData.block_height && txData.block_height !== -1) {
+        // Transaction is confirmed
+        currentRaffle.blockHash = txData.block_hash; // Store the current block hash
         res.json({
           status: 'success',
           txId: currentRaffle.txId,
-          blockHash,
+          blockHash: currentRaffle.blockHash,
           confirmed: true,
-          confirmations: response.data.confirmations || 1,
-          blockHeight: response.data.block_height
+          confirmations: txData.confirmations || 1
         });
       } else {
+        // Transaction is pending
         res.json({
           status: 'pending',
           txId: currentRaffle.txId,
           confirmed: false,
-          message: 'Transaction found but not yet confirmed in a block'
+          message: 'Transaction found but not yet confirmed'
         });
       }
-    } catch (apiError) {
-      console.error('Error checking transaction via API:', apiError.response?.data || apiError.message);
+    } catch (error) {
+      console.error('Error checking transaction via API:', error.response?.data || error.message);
 
       // If we get a 404, the transaction doesn't exist (yet)
-      if (apiError.response && apiError.response.status === 404) {
+      if (error.response && error.response.status === 404) {
         res.json({
           status: 'not_found',
           txId: currentRaffle.txId,
@@ -286,7 +296,7 @@ app.get('/api/check-transaction', async (req, res) => {
         // For other API errors, return the error details
         res.status(500).json({
           error: 'Failed to check transaction status',
-          details: apiError.response?.data || apiError.message
+          details: error.response?.data || error.message
         });
       }
     }
@@ -415,7 +425,246 @@ app.post('/api/reset', (req, res) => {
   }
 });
 
-// Start the server
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-}); 
+// Get block hash by block number
+app.get('/api/block-hash/:blockNumber', async (req, res) => {
+  try {
+    const { blockNumber } = req.params;
+    if (!blockNumber || isNaN(Number(blockNumber))) {
+      return res.status(400).json({ error: 'Invalid or missing block number' });
+    }
+    const network = process.env.BLOCKCYPHER_NETWORK || 'main';
+    const blockApiUrl = `${BLOCKCYPHER_API_BASE_URL}/btc/${network}/blocks/${blockNumber}`;
+    try {
+      const response = await axios.get(blockApiUrl);
+      const blockHash = response.data.hash;
+      if (!blockHash) {
+        return res.status(404).json({ error: 'Block hash not found for this block number' });
+      }
+      res.json({
+        status: 'success',
+        blockNumber: Number(blockNumber),
+        blockHash
+      });
+    } catch (apiError) {
+      console.error('Error fetching block from BlockCypher:', apiError.response?.data || apiError.message || apiError);
+      if (apiError.response && apiError.response.status === 404) {
+        res.status(404).json({ error: 'Block not found on the blockchain' });
+      } else {
+        res.status(500).json({
+          error: 'Failed to fetch block hash',
+          details: apiError.response?.data || apiError.message || apiError.toString()
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error in /api/block-hash/:blockNumber:', error);
+    res.status(500).json({ error: 'Server error while fetching block hash' });
+  }
+});
+
+// Endpoint to get block hash by block number
+app.get('/api/block/:blockNumber', async (req, res) => {
+  try {
+    const { blockNumber } = req.params;
+
+    if (!blockNumber || isNaN(parseInt(blockNumber))) {
+      return res.status(400).json({ error: 'Valid block number is required' });
+    }
+
+    const network = process.env.BLOCKCYPHER_NETWORK || 'main';
+    // Use the configured BlockCypher base URL
+    const blockApiUrl = `${BLOCKCYPHER_API_BASE_URL}/btc/${network}/blocks/${blockNumber}`;
+
+    console.log(`Fetching block details from: ${blockApiUrl}`);
+    const response = await axios.get(blockApiUrl);
+
+    if (response.data && response.data.hash) {
+      res.json({
+        status: 'success',
+        blockNumber: parseInt(blockNumber),
+        blockHash: response.data.hash
+      });
+    } else {
+      // Handle cases where the block might exist but the response format is unexpected
+      console.error('Unexpected response format from BlockCypher:', response.data);
+      res.status(404).json({ error: 'Block found, but hash could not be retrieved', status: 'error' });
+    }
+  } catch (error) {
+    console.error('Error fetching block hash:', error.response?.data || error.message);
+    if (error.response && error.response.status === 404) {
+      res.status(404).json({ error: 'Block not found', status: 'not_found' });
+    } else {
+      res.status(500).json({
+        error: 'Server error while fetching block hash',
+        details: error.message,
+        status: 'error'
+      });
+    }
+  }
+});
+
+// --- Helper Functions (Placeholder implementations or to be moved) ---
+// REMOVED FROM HERE
+// --- End Helper Functions ---
+
+// --- NEW: Generate Bingo Cards Endpoint --- 
+app.get('/api/cards', async (req, res) => {
+  const { txId, nickname } = req.query;
+
+  if (!txId) {
+    return res.status(400).json({ error: 'Transaction ID (txId) is required' });
+  }
+  if (!nickname) {
+    return res.status(400).json({ error: 'Nickname is required' });
+  }
+
+  try {
+    // --- BEGIN Check Cache ---
+    if (gameSessionCache.has(txId)) {
+      console.log(`Cache hit for txId: ${txId}`);
+      const cachedData = gameSessionCache.get(txId);
+      const { blockHash, participants } = cachedData;
+
+      // Find user lines and generate cards using cached data
+      const userLines = participants
+        .map((p, index) => ({ ...p, lineIndex: index })) // Add original line index
+        .filter(p => p.name && p.name.trim().toLowerCase() === nickname.trim().toLowerCase());
+
+      if (userLines.length === 0) {
+        return res.status(404).json({ error: `Nickname '${nickname}' not found in the participant list for this transaction.` });
+      }
+
+      // Use CURRENT block hash for seed base
+      const seedBase = crypto.createHash('sha256').update(blockHash).digest('hex');
+
+      const userCards = userLines.map(user => {
+        const derivedPubKeyBuffer = derivePublicKey(seedBase, user.lineIndex);
+        const card = generateBingoCard(derivedPubKeyBuffer);
+        return {
+          cardId: crypto.createHash('sha256').update(derivedPubKeyBuffer).digest('hex').slice(0, 16),
+          lineIndex: user.lineIndex,
+          username: user.name,
+          grid: card.grid
+        };
+      });
+
+      return res.json({ status: 'success', cards: userCards, blockHash: blockHash });
+
+    }
+    // --- END Check Cache ---
+
+    console.log(`Cache miss for txId: ${txId}. Fetching from APIs.`);
+
+    // Fetch transaction details if not in cache
+    const network = process.env.BLOCKCYPHER_NETWORK || 'main';
+    const txApiUrl = `${BLOCKCYPHER_API_BASE_URL}/btc/${network}/txs/${txId}`;
+    console.log(`Fetching transaction: ${txApiUrl}`);
+    const txResponse = await axios.get(txApiUrl);
+    const txData = txResponse.data;
+
+    // Ensure transaction is confirmed
+    if (!txData.block_hash || txData.block_height === -1) {
+      return res.status(400).json({ error: 'Transaction is not yet confirmed in a block.' });
+    }
+    const currentBlockHash = txData.block_hash;
+
+    // Extract OP_RETURN data (hex representation of the string CID)
+    const opReturnOutputs = txData.outputs.filter(output => output.script_type === 'null-data');
+    if (opReturnOutputs.length === 0) {
+      return res.status(400).json({ error: 'Transaction does not contain OP_RETURN data.' });
+    }
+    const opReturnDataHex = opReturnOutputs[0].data_hex;
+
+    // --- BEGIN Fix CID Handling ---
+    // Convert the HEX data back to the original STRING CID
+    let stringCid;
+    try {
+      stringCid = Buffer.from(opReturnDataHex, 'hex').toString('utf8');
+      // Basic validation if it looks like a CID (starts with 'b' or 'Q')
+      if (!stringCid || (!stringCid.startsWith('b') && !stringCid.startsWith('Q'))) {
+         throw new Error('Decoded hex does not look like a standard CID string.');
+      }
+      console.log(`Decoded OP_RETURN hex to string CID: ${stringCid}`);
+    } catch (decodeError) {
+       console.error(`Error decoding OP_RETURN hex: ${opReturnDataHex}`, decodeError);
+       return res.status(500).json({ error: 'Failed to decode OP_RETURN data to a valid CID string.', details: decodeError.message });
+    }
+    // --- END Fix CID Handling ---
+
+    // --- BEGIN Fetch IPFS Data ---
+    const ipfsUrl = `${PINATA_PUBLIC_GATEWAY_BASE}/${stringCid}`;
+    console.log(`Fetching participant list from IPFS: ${ipfsUrl}`);
+    let participants = [];
+    try {
+      const ipfsResponse = await axios.get(ipfsUrl, { responseType: 'text' });
+      const csvData = ipfsResponse.data;
+      participants = await csvtojson({ headers: ['name'], noheader: true }).fromString(csvData);
+       // Add ticket number for display purposes during parsing
+       participants = participants.map((p, i) => ({
+         ...p,
+         ticket: (i + 1).toString()
+       }));
+    } catch (ipfsError) {
+      console.error(`Error fetching or parsing CSV from IPFS (${ipfsUrl}):`, ipfsError.response?.data || ipfsError.message);
+      // Distinguish between fetch error and parse error if possible
+      const errorDetail = ipfsError.response?.status === 404 ? 'File not found at IPFS URL.' : 'Could not fetch or parse CSV file from IPFS.';
+      return res.status(500).json({ error: 'Failed to retrieve participant list from IPFS.', details: errorDetail });
+    }
+     // --- END Fetch IPFS Data ---
+
+    // --- BEGIN Store in Cache ---
+    const cacheData = {
+      blockHash: currentBlockHash,
+      participants: participants // Store the parsed participant list
+    };
+    gameSessionCache.set(txId, cacheData);
+    console.log(`Stored data in cache for txId: ${txId}`);
+    // --- END Store in Cache ---
+
+    // Find user lines and generate cards (same logic as cache hit)
+    const userLines = participants
+      .map((p, index) => ({ ...p, lineIndex: index })) // Add original line index
+      .filter(p => p.name && p.name.trim().toLowerCase() === nickname.trim().toLowerCase());
+
+    if (userLines.length === 0) {
+      return res.status(404).json({ error: `Nickname '${nickname}' not found in the participant list.` });
+    }
+
+    // --- BEGIN Use Current Block Hash for Seed ---
+    // Use CURRENT block hash for seed base
+    const seedBase = crypto.createHash('sha256').update(currentBlockHash).digest('hex');
+    // --- END Use Current Block Hash for Seed ---
+
+    const userCards = userLines.map(user => {
+      const derivedPubKeyBuffer = derivePublicKey(seedBase, user.lineIndex);
+      const card = generateBingoCard(derivedPubKeyBuffer);
+      return {
+        cardId: crypto.createHash('sha256').update(derivedPubKeyBuffer).digest('hex').slice(0, 16),
+        lineIndex: user.lineIndex,
+        username: user.name,
+        grid: card.grid
+      };
+    });
+
+    res.json({ status: 'success', cards: userCards, blockHash: currentBlockHash });
+
+  } catch (error) {
+    console.error('Error in /api/cards:', error);
+    // Handle potential errors from BlockCypher API call itself (e.g., 404 Not Found for txId)
+    if (error.response && error.response.status === 404) {
+      return res.status(404).json({ error: 'Transaction ID not found.' });
+    }
+    if (error.response && error.response.status >= 400) {
+       return res.status(error.response.status).json({ error: 'Error fetching transaction details.', details: error.response.data });
+    }
+    res.status(500).json({ error: 'Server error while generating cards.', details: error.message });
+  }
+});
+
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+}
+
+module.exports = app; 

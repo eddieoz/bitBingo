@@ -3,24 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "^13.5.0",
+    "@noble/secp256k1": "^2.2.3",
+    "@scure/bip32": "^1.7.0",
+    "assert": "^2.1.0",
     "axios": "^1.8.4",
     "bootstrap": "^5.3.3",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "multiformats": "^13.3.2",
+    "papaparse": "^5.5.2",
+    "process": "^0.11.10",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.8",
-    "react-router-dom": "^7.5.1",
-    "react-scripts": "5.0.1",
+    "react-router-dom": "^7.5.2",
+    "react-scripts": "^5.0.1",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5",
+    "vm-browserify": "^1.1.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -40,5 +47,18 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "packageManager": "pnpm@8.15.4",
+  "devDependencies": {
+    "@craco/craco": "^7.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/papaparse": "^5.3.15",
+    "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/ui": "^3.1.2",
+    "jsdom": "^26.1.0",
+    "vite": "^6.3.3",
+    "vitest": "^3.1.2"
   }
 }

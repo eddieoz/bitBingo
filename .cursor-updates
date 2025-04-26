@@ -1,0 +1,20 @@
+Added /api/block-hash/:blockNumber endpoint to fetch the block hash for a given block number from BlockCypher. 
+
+feat: Add player page structure and components for card generation/display (Story 2) 
+
+feat: add endpoint to fetch block hash by number
+feat: add play page with form to fetch block hash by number 
+feat: implement backend logic for card generation (/api/cards, helpers)
+feat: add frontend components (BingoCard, UserCardsDisplay) to show cards 
+
+Fix ESLint warnings in client components (unused imports/vars, useEffect dependency). 
+
+Refactor: Implement caching, use current block hash seed, fix CID decode for /api/cards. 
+
+Refactor: Remove client-side card fetch/gen logic, use backend /api/cards. 
+
+Fix: Change /api/cards to GET, fix DOM props (for/class) in WinnerDisplay. 
+
+Fix: Pass correct public key Buffer to generateBingoCard in /api/cards. 
+
+Fix: Ensure derivePublicKey returns a Buffer using Buffer.from(). 

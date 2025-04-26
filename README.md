@@ -1,4 +1,4 @@
-# bitRaffle
+# bitBingo
 
 A trustless, automated, Bitcoin-based raffle system that uses Bitcoin's blockchain to provide transparent and verifiable raffle drawings that cannot be manipulated.
 
@@ -44,8 +44,8 @@ A trustless, automated, Bitcoin-based raffle system that uses Bitcoin's blockcha
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/bitRaffle.git
-cd bitRaffle
+git clone https://github.com/yourusername/bitBingo.git
+cd bitBingo
 ```
 
 2. Install dependencies:
@@ -164,7 +164,7 @@ The raffle's results are verifiable using the confirmed transaction's block hash
 
 ## Deployment
 
-To deploy bitRaffle to a demo or production environment, consider the following:
+To deploy bitBingo to a demo or production environment, consider the following:
 
 1.  **Environment Variables**: Configure the necessary environment variables in your deployment environment. These are typically set through the hosting provider's interface.
     *   `server/.env`:

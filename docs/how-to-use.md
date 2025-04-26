@@ -1,13 +1,13 @@
-# How to Use bitRaffle
+# How to Use bitBingo
 
-Welcome to [bitRaffle](https://bitraffle.sats4.life), a trustless and transparent raffle system powered by Bitcoin's blockchain. This guide will walk you through each step of running a raffle and verifying its results.
+Welcome to [bitBingo](https://bitBingo.sats4.life), a trustless and transparent raffle system powered by Bitcoin's blockchain. This guide will walk you through each step of running a raffle and verifying its results.
 
 ## Quick Start Guide
 
 1. **Prepare your participant list** in CSV format
-2. **Upload your CSV** to the bitRaffle platform
+2. **Upload your CSV** to the bitBingo platform
 3. **Create a Bitcoin transaction** with the IPFS data
-4. **Submit the transaction ID** to bitRaffle
+4. **Submit the transaction ID** to bitBingo
 5. **Wait for confirmation** on the Bitcoin blockchain
 6. **Get your winners** automatically selected by the system
 7. **Verify the results** yourself (optional but encouraged)
@@ -32,9 +32,9 @@ Alice Williams
 
 You can use any spreadsheet software like Excel or Google Sheets to create this file, then export/save as CSV.
 
-### Step 2: Upload Your CSV to bitRaffle
+### Step 2: Upload Your CSV to bitBingo
 
-1. Visit [https://bitraffle.sats4.life](https://bitraffle.sats4.life)
+1. Visit [https://bitBingo.sats4.life](https://bitBingo.sats4.life)
 2. Click on the "Upload Participants" button
 3. Select your CSV file from your device
 4. The system will process your file and upload it to IPFS (a decentralized storage network)
@@ -62,9 +62,9 @@ You need to create a special Bitcoin transaction that includes your raffle data.
 6. Click **Pay...**, then **Sign** and **Broadcast**
 7. Copy the **Transaction ID** (txid) that appears
 
-### Step 4: Submit the Transaction ID to bitRaffle
+### Step 4: Submit the Transaction ID to bitBingo
 
-1. Return to [https://bitraffle.sats4.life](https://bitraffle.sats4.life)
+1. Return to [https://bitBingo.sats4.life](https://bitBingo.sats4.life)
 2. Enter the Transaction ID in the designated field
 3. Click "Submit" to start monitoring
 
@@ -74,7 +74,7 @@ The system will now monitor the Bitcoin blockchain until your transaction is con
 - 10 minutes on average
 - Could be faster or slower depending on network congestion and the fee you paid
 
-You can check the status on the bitRaffle page or through a block explorer like [Blockstream Explorer](https://blockstream.info/) by searching for your transaction ID.
+You can check the status on the bitBingo page or through a block explorer like [Blockstream Explorer](https://blockstream.info/) by searching for your transaction ID.
 
 ### Step 6: View Your Winners
 
@@ -86,7 +86,7 @@ Once your transaction is confirmed:
 
 ### Step 7: Verify the Results (Optional)
 
-One of the key benefits of bitRaffle is that anyone can independently verify the results. Here's how:
+One of the key benefits of bitBingo is that anyone can independently verify the results. Here's how:
 
 1. **Gather the necessary information:**
    - The block hash of the Bitcoin block containing your transaction

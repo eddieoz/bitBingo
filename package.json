@@ -1,13 +1,13 @@
 {
-  "name": "bitraffle",
+  "name": "bitBingo",
   "version": "1.0.0",
   "description": "A trustless, automated, Bitcoin-based raffle system",
   "main": "index.js",
   "scripts": {
-    "start": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd server && npm run dev",
-    "client": "cd client && npm start",
-    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "start": "concurrently \"pnpm run server\" \"pnpm run client\"",
+    "server": "cd server && pnpm run dev",
+    "client": "cd client && pnpm start",
+    "install-all": "pnpm install && cd server && pnpm install && cd ../client && pnpm install",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -32,5 +32,5 @@
     "ipfs-http-client": "^60.0.1",
     "tiny-secp256k1": "^2.2.3"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "pnpm@8.15.4"
 }

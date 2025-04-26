@@ -1,0 +1,101 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+node_modules/
+/node_modules
+node_modules
+vendor/
+build/
+dist/
+.DS_Store
+.idea/
+.vscode/
+.pytest_cache/
+.conda/
+.venv/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.test
+.env.production
+.env.local
+.env.development.local
+.env.test.local
+.next/
+.next/cache/
+.next/types/
+.next/static/
+.next/trace
+.next/build-manifest.json
+.next/app-build-manifest.json
+.next/react-loadable-manifest.json
+
+
+.coverage.*
+.coverage*
+.pytest_cache/
+.private/
+
+# Python virtual environments
+venv/
+.venv/
+.conda/
+
+# Python cache files
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Test cache
+.pytest_cache/
+
+# Coverage reports
+htmlcov/
+
+# Temporary directories
+tmp/
+/tmp/
+
+# AI assistant files
+# .cursor/
+# !.cursor/rules/
+
+# Output directories
+outputs/
+workspace/outputs/
+
+# Weight files for AI models
+weights/
+
+# Large binary files
+*.mp4
+*.mov
+*.avi
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
+*.mp3
+*.wav
+*.ogg
+*.m4a
+*.flac
+
+
+# Generated content
+frontend/public/images/
+
+# Large library directories
+clips_automator/reels-clips-automator/weights/
+
+# Log files
+*.log
+logs/
+
+# All environment files (simplified)
+.env*
+!.env.example

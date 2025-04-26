@@ -1,0 +1,152 @@
+---
+description: 
+globs: frontend/,frontend/*,frontend/**/*,frontend/**
+alwaysApply: false
+---
+## Frontend Development & Code Rules
+
+### 1. Node & Package Manager
+1. **Node.js version 20**: Always use Node.js v20 (via `nvm use 20` or project `.nvmrc`).
+2. **pnpm**: Use pnpm for all package operations (install, build, run, etc.).
+
+### 2. Code Style and Structure
+1. **Languages & Frameworks**: You are proficient in TypeScript, React, Next.js (App Router), Expo (React Native), Tamagui, shadcn/ui, Supabase, Zod, Turbo (Monorepo Management), i18next (react-i18next, i18next, expo-localization), Zustand, React Context + useReducer, TanStack React Query, Solito, Stripe (subscription model), and BDD testing approaches.
+2. **Prefer functional & declarative programming** over classes. Write concise TypeScript with accurate examples.
+3. **Avoid code duplication**; factor out reusable logic into helper modules and shared libraries.
+4. **Descriptive naming**: Use active or auxiliary verbs for booleans (e.g., `isLoading`, `hasError`).
+5. **File structure**: 
+   - Export components, subcomponents, helpers, static content, and types from each file.
+   - Favor **named exports** for components and functions.
+   - Keep directory names in **kebab-case** (e.g., `components/auth-wizard`).
+
+### 3. TypeScript & Syntax
+1. **Strict mode**: Enable strict mode (`"strict": true`) in `tsconfig.json`.
+2. **Interfaces over types** for object shapes; avoid `any`.
+3. Use **Zod** for schema validation and type inference.
+4. **No enums**; use literal types or maps instead.
+5. **Function keyword**: Prefer `function` declarations for pure functions.
+6. **JSX**: Use clear, declarative JSX structures with minimal curly braces in conditionals.
+
+### 4. Components & Naming
+1. **Functional components**: Always use functional components.  
+   - For Next.js server components, no `"use client"` by default.  
+   - For browser-based logic or state, add `"use client"`.
+2. **PascalCase** for component filenames and exported component symbols (e.g., `MyComponent.tsx`).
+3. Place React components under `src/components/` (web) or relevant subfolder. For Next.js routes, use `app/` with kebab-case route directories (e.g., `app/auth/magic-link/page.tsx`).
+4. **shadcn/ui & Tamagui**: 
+   - For **web-only** or simpler Next.js projects, prefer [shadcn/ui](mdc:https:/ui.shadcn.com) components with Tailwind classes.  
+   - For **cross-platform** (Expo + Web) or advanced theming, use **Tamagui**.  
+   - Maintain consistent styling approach across the codebase; do not mix them arbitrarily without a plan.
+5. **Small, typed components**: Keep each component focused; define an `interface` for props in the same file.
+
+### 5. UI & Styling
+1. **Tamagui** (cross-platform) or **shadcn/ui** (web + Tailwind):
+   - Ensure theming is consistent across the application.
+   - For cross-platform, `Tamagui` allows reuse of components in native & web. For web-only, `shadcn/ui` + Tailwind is preferred.
+2. **Responsive / mobile-first** design approach.
+3. **Conditional class merging** in web with `cn()` utility (shadcn/ui approach).
+4. Keep styling consistent; do not override library defaults excessively.
+
+### 6. State Management & Data Fetching
+There are two recommended approaches for **global state**:
+1. **Zustand** (from the original rules):  
+   - Use for more complex or subscription-based global state.  
+   - Combine with **TanStack React Query** for data fetching, caching, and synchronization from the server.
+2. **React Context + useReducer** (from the updated rules):  
+   - Use for simpler global states or if you prefer a built-in React solution.  
+   - Especially useful for **authentication** or smaller shared states.  
+
+Regardless of approach:
+1. **Minimize `useEffect`**: Favor derived or memoized state over direct effect usage.
+2. **Authentication State**: If using React Context, store auth-related data in a dedicated context (`src/contexts/auth.tsx`).
+3. **TanStack React Query**: Always use for server state caching and synchronization.
+
+### 7. Internationalization (i18n)
+1. **i18next + react-i18next**: For web translations.
+2. **expo-localization**: For React Native translations.
+3. **All user-facing text** must be internationalized to support multiple locales.
+4. Maintain resource files in a consistent structure (e.g., `locales/en/common.json`).
+
+### 8. Next.js Structure
+1. **App Router**: Place routes in `app/` directory (kebab-case for route folders).
+2. **API routes** in `app/api/`.
+3. Use **server components** by default, `"use client"` only when necessary.
+4. For cross-platform setups, consider **Solito** to share code/navigators between Next.js (web) and Expo (native).
+
+### 9. Authentication
+1. **Supabase**: Use Supabase for backend services (including auth & database).
+2. **Magic link** (updated rules) or **Supabase authentication** (original rules).  
+   - If using magic links with Supabase, store the JWT or session data in localStorage **securely**.
+   - Refresh or track token expiration gracefully.
+3. **Protected routes**: Implement with Next.js’ middleware or higher-order components.
+4. For subscription-based or premium content, integrate **Stripe** (see Stripe Integration below).
+
+### 10. Error Handling & Validation
+1. **Error boundaries** (React) or `try/catch` blocks for local error handling.
+2. **Zod** schemas for input validation on forms and data from the backend.
+3. **Early returns** for invalid states or preconditions. Keep logic shallow.
+4. Log errors for debugging; show user-friendly messages in production.
+5. For Stripe or other external services, handle webhooks (backend) and show relevant status to the user.
+
+### 11. Performance Optimization
+1. **Dynamic imports** (`next/dynamic` or `React.lazy`) for code splitting large components.
+2. Show **loading states** while lazy-loaded code is fetched.
+3. Optimize **images** with Next.js `<Image />` or appropriate libraries. Use lazy loading where possible.
+4. **Memoization**: Use `React.memo`, `useMemo`, or `useCallback` to avoid unnecessary re-renders.
+
+### 12. Monorepo Management
+1. **Turbo**: Use [Turborepo](mdc:https:/turbo.build) for monorepo setups.
+2. Keep separate apps in `apps/` (e.g., `apps/web`, `apps/expo`) and shared code in `packages/`.
+3. Manage shared configurations, scripts, and dependencies with `turbo.json` and root `package.json`.
+4. Use custom generators (`yarn turbo gen`) for creating components, screens, or tRPC routers.
+
+### 13. Stripe Integration & Subscription Model
+1. **Stripe**: Use for payment processing.
+2. **Subscription management**: Use Stripe’s Customer Portal for subscription changes.
+3. Handle **webhooks** for subscription lifecycle events (created, updated, canceled) on the backend.
+4. Sync subscription status with the user’s record in Supabase.
+
+### 14. Testing & BDD
+1. **Behavior-Driven Development (BDD)**:
+   - Write feature and scenario definitions in plain language (Given–When–Then).
+   - Align acceptance tests with user stories & acceptance criteria.
+2. **Unit tests**: Use React Testing Library or similar for **critical components** (forms, authentication flows, etc.).
+3. **Integration / E2E tests**: Cover auth flows, protected routes, major user journeys.
+4. Keep the **business logic** on the backend. Frontend BDD tests focus on **user-facing behavior** only.
+
+### 15. Tools & Workflows
+1. **Screenshot** tool: If you make meaningful UI changes, capture a screenshot and store it in `screenshots/`.
+2. **Architect** tool: For complex tasks, find relevant files, call `architect` for a plan, and share it with the user.
+3. **codeReview** tool: After a complex change, generate a diff and conduct a code review.
+
+### 16. Additional Conventions
+1. **Short code**, **semantic commits**: Keep commits descriptive (e.g., `feat: add user profile form`).
+2. **Reusable logic** in `src/lib/utils/shared.ts` or `src/lib/utils/server.ts`.
+3. Use `.tsx` scripts for migrations.
+4. **Follow official docs**: Next.js (App Router & data fetching), Supabase guidelines, Tamagui docs, shadcn/ui docs, etc.
+5. For environment variables, use `dotenv` or platform-appropriate config files (`eas.json`, `next.config.js`).
+
+---
+
+## IMPORTANT
+
+1. **Frontend never handles business rules**—only the backend does. The frontend merely **consumes** the outcomes (e.g., validation, authorization checks).
+2. After any changes, **always build** with:
+   ```bash
+   pnpm build
+   ```
+   - **Ignore warnings**, but fix errors.
+3. **Always append one sentence** describing your changes to **`.cursor-updates`** (in Markdown) at the end of *every* agent interaction.
+   - If you forget, the user can type `"finish"` to remind you.
+4. Finally, update Git with:
+   ```bash
+   git add .
+   git commit -m "Your commit message"
+   ```
+   **Do not push**.
+5. **Fix issues at the root cause**, not just the symptom.
+6. Provide **detailed** summarization in commits; do not omit critical details.
+
+---
+
+**Use this unified reference to ensure consistency, maintainability, and a smooth developer experience for both web and cross-platform fronts.**

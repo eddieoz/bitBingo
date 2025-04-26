@@ -1,0 +1,66 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+ # Template Rule
+
+This rule defines how to transform high-level tasks into detailed step-by-step instructions for AI coding agents.
+
+## Rule Structure
+
+1. **Codebase Reference**
+   - Use the provided codebase as reference
+   - Include relevant code snippets when necessary
+   - Be specific about file names and locations
+
+2. **Task Transformation**
+   - Convert high-level tasks into detailed step-by-step instructions
+   - Instructions should be specific and actionable
+   - Focus only on steps that an AI coding agent can complete
+   - Include all necessary file paths and code references
+
+3. **Build Process**
+   - Always include a build step at the end
+   - Specify exact build command to run
+   - Ensure all dependencies are properly referenced
+
+4. **Formatting**
+   - Use markdown formatting throughout
+   - Keep instructions clear and concise
+   - Use code blocks for code snippets
+   - Include file paths in backticks
+
+## Example Usage
+
+```markdown
+1. Search for relevant files in the codebase
+   - Use semantic search to find related code
+   - Look in specific directories if needed
+
+2. Analyze the existing code structure
+   - Review file contents
+   - Understand dependencies
+   - Note any patterns or conventions
+
+3. Create or modify files as needed
+   - Follow project conventions
+   - Include all necessary imports
+   - Maintain consistent formatting
+   - Don't change the actual code style or structure if not explicit asked
+
+4. Run build process
+   - Execute `pnpm build`
+   - Fix any errors
+   - Ignore warnings
+```
+
+## Important Notes
+
+- Do not include testing steps
+- Do not include manual verification steps
+- Focus only on steps that can be automated
+- Be specific about file locations and names
+- Always include a build step at the end
+- Try to fix things at the cause, not the symptom
+- Be very detailed with summarization and do not miss out things that are important
