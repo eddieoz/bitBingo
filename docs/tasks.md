@@ -18,18 +18,19 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
 - [x] **Frontend:** Modify PlayPage input from Block Number to Transaction ID.
 - [ ] **Backend TDD (`/api/cards`):** (Skipped for now due to test environment issues)
     - [ ] (Red) Write failing integration test for happy path (mocks: BlockCypher, IPFS).
-    - [x] (Green) Implement `/api/cards` logic: fetch TX, get prev block hash, fetch IPFS CSV, parse, find lines.
+    - [x] (Green) Implement `/api/cards` logic: fetch TX, get block hash, fetch IPFS CSV, parse, find lines, use current block hash seed, cache results.
     - [x] (Refactor) Extract logic into helper functions, improve error handling.
     - [ ] (R/G/R) Add tests & implementation for edge cases (nickname not found, invalid TX, unconfirmed, no OP_RETURN, IPFS error, CSV error, etc.). (Skipped)
 - [ ] **Backend TDD (`derivePublicKey` helper):** (Skipped for now)
     - [ ] (Red) Write unit test for correct BIP32 derivation.
     - [x] (Green) Implement using `bip32` library.
-    - [x] (Refactor) Code cleanup.
+    - [x] (Refactor) Code cleanup. Ensure Buffer output.
 - [ ] **Backend TDD (`generateBingoCard` helper):** (Skipped for now)
     - [ ] (Red) Write unit tests for card structure, number ranges, uniqueness, determinism.
     - [x] (Green) Implement deterministic card generation from public key hash.
     - [x] (Refactor) Optimize and clarify generation logic.
 - [x] **Frontend:** Create/Update `UserCardsDisplay` component to render the cards received from `/api/cards`.
+- [x] **Frontend:** Refactor `PlayPage` to use `/api/cards` backend endpoint exclusively.
 - [x] **Documentation:** Update user verification steps for card generation. (Covered by docs/verification.md)
 
 ### 3. Number Drawing (Game Master)

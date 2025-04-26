@@ -18,3 +18,5 @@ Fix: Change /api/cards to GET, fix DOM props (for/class) in WinnerDisplay.
 Fix: Pass correct public key Buffer to generateBingoCard in /api/cards. 
 
 Fix: Ensure derivePublicKey returns a Buffer using Buffer.from(). 
+
+feat: Implement Story 2 - Card generation and user login flow. 
