@@ -71,11 +71,11 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
 
 ### 5. Determinism & Verification
 - [x] All card and number generation is deterministic and verifiable from block hash, CSV, and public process (Based on server logic in `utils.js`)
-- [ ] Document the verification process for users (in README/docs) (Requires manual verification/creation of docs)
+- [x] Document the verification process for users (in README/docs) (Requires manual verification/creation of docs)
 
 ### 6. Testing (TDD/BDD)
 - [ ] Write BDD scenarios and TDD tests for each user story before/alongside implementation (Largely skipped for backend endpoints/helpers)
-- [ ] Ensure tests cover edge cases (duplicate names, invalid CSV, block hash errors, etc.) (Largely skipped)
+- [ ] Ensure tests cover edge cases (invalid CSV, block hash errors, etc.) (Largely skipped)
 
 ---
 
