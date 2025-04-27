@@ -45,8 +45,10 @@ interface PlayPageProps {
 
 // Update component definition to accept props
 export default function PlayPage({ params }: PlayPageProps) {
-  // Get txid directly from params prop
-  const { txid } = params;
+  // Resolve params using the use() hook
+  const resolvedParams = use(params);
+  // Assert the type after using the hook
+  const { txid } = resolvedParams as { txid: string }; 
   
   const queryClient = useQueryClient();
   const [userSession, setUserSession] = useState<UserSession | null>(null);

@@ -73,3 +73,7 @@ Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correc
 - Fixed 404 error on PlayPage by correcting API URL construction in fetchGameState. 
 
 - Fixed 404 error during login by correcting API URL construction in UserLogin component. 
+
+- Cleaned up unused code: deleted WinnerDisplay.jsx and old PlayPage.jsx, removed unused functions from TransactionCreator.jsx. 
+
+- Reverted PlayPage params handling to use `React.use()` with type assertion to fix runtime warning. 
