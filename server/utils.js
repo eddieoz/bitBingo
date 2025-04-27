@@ -26,11 +26,11 @@ const BLOCKCYPHER_NETWORK = process.env.BLOCKCYPHER_NETWORK || 'main';
  * @returns {Buffer} The derived public key.
  */
 function derivePublicKey(seedHash, index) {
-  if (!seedHash || typeof seedHash !== 'string' || seedHash.length === 0) {
-    throw new Error('Invalid seedHash provided for key derivation.');
+  if (!seedHash || typeof seedHash !== 'string' || !/^[0-9a-fA-F]+$/.test(seedHash) || seedHash.length < 32) { // Basic hex check & minimum length (128 bits / 4 bits/hex = 32 chars)
+    throw new Error(`Invalid seedHash provided for key derivation: Must be a non-empty hex string of at least 32 characters.`);
   }
-  if (typeof index !== 'number' || index < 0) { // Allow index 0 if needed, but usually 1-based
-    throw new Error(`Invalid index provided for key derivation: ${index}`);
+  if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) { 
+    throw new Error(`Invalid index provided for key derivation: Must be a non-negative integer. Received: ${index}`);
   }
 
   try {
@@ -386,11 +386,16 @@ function countMarkedDrawnNumbers(grid, drawnNumbers) {
 // --- NEW: Calculate Max Marked Squares in Any Line (Row, Col, Diag) ---
 // Includes the FREE space. Useful for showing proximity to winning.
 function calculateMaxMarkedInLine(grid, drawnNumbers) {
+    // Improved check for valid grid structure and drawnNumbers
+    const columns = ['B', 'I', 'N', 'G', 'O'];
+    const isValidGrid = grid && typeof grid === 'object' && columns.every(col => Array.isArray(grid[col]) && grid[col].length === 5);
+    if (!isValidGrid || drawnNumbers == null) {
+        return 0;
+    }
+
     const drawnSet = new Set(drawnNumbers);
     const size = 5;
     let maxMarked = 0;
-
-    if (!grid || !drawnSet) return 0;
 
     // Helper to check if a cell is marked (handles Free Space)
     const isMarked = (colLetter, rowIndex) => {

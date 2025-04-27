@@ -9,6 +9,17 @@ Always consider the following data for testing:
 - Valid Transaction ID: 6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002
 - Valid CID: bafkreifu3wf3vqz4u7uktze6te2lxb57ekwrg3ngdjl4ktgoag5jfwudgi
 - Valid Block hash: 000000000000000000006f9367863b3fa7ecbc605c8215ef9e92386cbec8255f
+- Valid derivations:
+    - m/44'/0'/0'/0/0       0221f19d6298f375ef4b2f829fbe479567d2a186aabef4f7790d7a73d32ff68145
+    - m/44'/0'/0'/0/1		024942fcbb9b222a30c62e121438eba0153bfef15aa285ed3693d025523ef8897a	
+    - m/44'/0'/0'/0/2		030c03062f9ff15cfb9b355f470dfd45066e64a4e5ea2f03e41039fe4a07c21f80	
+    - m/44'/0'/0'/0/3		031ef24f30ffddfae19b6529ce51034a29a8a224cdcaab57d13114c3e4077cb686	
+    - m/44'/0'/0'/0/4		0281b9d9493eba7a42b2a701112aefed45216eff22141a36fceec0894afb6a5443	
+    - m/44'/0'/0'/0/5		03f1d762518e143589c605ae1bf80f292ce855834ada0e9857cef0d9abb9a5edbb
+    - m/44'/0'/0'/0/6		030a2ae8b234e8d1d0cf57911ab2be604a3e450fa2ed1fab82f1fdf1258a70eb45	
+    - m/44'/0'/0'/0/7		02c934139df7611fcd14b33d03a034fdc7d17229daa7e226bb8dc963a123963abe	
+    - m/44'/0'/0'/0/8		0290eb5df27827e05a804abba54da3a431d2f6bc7de63de4ebda1c276390178c75	
+    - m/44'/0'/0'/0/9		03b2172ed0de54c28824d9a8dd27d59846269616b541f5d1f4df5254fd4639f0ee
 - Valid CSV: [sample-tickets.csv](mdc:sample-tickets.csv)
 
 Work with that valid (real) data for your tests.

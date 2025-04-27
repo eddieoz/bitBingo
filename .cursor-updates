@@ -91,3 +91,11 @@ fix: Restore Admin page UI elements (header details, transaction box) by fixing 
 
 feat: Improve player link display on Admin page with copy button and QR code modal. 
 feat: Make player link copy button show temporary 'Copied!' text on click. 
+
+fix(test): Correct assertion in UserCardsDisplay.test.jsx for default props. 
+
+fix(test): Update BingoCard mock in UserCardsDisplay test to handle extra args. 
+
+fix(test): Use mock.calls assertion in UserCardsDisplay test to ignore extra args. 
+
+docs: Update tasks.md to reflect completed UserCardsDisplay prop drilling test.

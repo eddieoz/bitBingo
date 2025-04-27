@@ -165,14 +165,39 @@ app.post('/api/check-transaction', async (req, res) => {
   const { txid, participantFilename } = req.body;
   console.log(`[Check TX] Received request for TXID: ${txid}, Filename: ${participantFilename}`);
 
+  // Basic validation
   if (!txid || !participantFilename) {
-    return res.status(400).json({ message: 'Missing txid or participant filename.' });
+    return res.status(400).json({ message: 'Missing txid or participantFilename in request body.' });
   }
 
-  const participantFilePath = uploadedFiles.get(participantFilename);
-  if (!participantFilePath || !fs.existsSync(participantFilePath)) {
-    console.error(`[Check TX] Participant file path not found or invalid for filename: ${participantFilename}`);
-    return res.status(404).json({ message: 'Participant file not found. Please upload again.' });
+  // Revert to direct fs.existsSync check
+  const uploadsDir = path.join(__dirname, 'uploads');
+  // IMPORTANT: Use path.basename to prevent path traversal vulnerabilities
+  const safeFilename = path.basename(participantFilename); 
+  const participantFilePath = path.join(uploadsDir, safeFilename);
+
+  if (!fs.existsSync(participantFilePath)) {
+    console.error(`[Check TX] Participant file path not found or invalid: ${participantFilePath}`);
+    return res.status(404).json({ message: 'Participant file not found.' });
+  }
+
+  // Check if game already initialized for this txid
+  if (gameStates.has(txid)) {
+    console.log(`[Check TX] Game state for ${txid} already exists.`);
+    const existingGameState = gameStates.get(txid); // Retrieve the existing state
+    // Optionally update participants if re-checking? For now, assume immutable after init.
+    // gameState.participants = participants; // If you want to allow updates
+    // gameState.blockHash = blockHash; // Should be the same, but can update
+
+    // --- If game already existed, don't send token ---
+    res.status(200).json({
+        message: 'Transaction confirmed and game state verified.', // Slightly different message
+        txid: txid,
+        blockHash: existingGameState.blockHash, // Use the blockHash fetched in this request context
+        // Use the retrieved existingGameState here
+        participantCount: existingGameState ? existingGameState.participants.length : 0 // Add a check in case it's somehow null/undefined
+    });
+    return; // Exit here after sending init response
   }
 
   try {
@@ -191,77 +216,73 @@ app.post('/api/check-transaction', async (req, res) => {
     console.log(`[Check TX] Participant validation against uploaded file ${participantFilename} - Skipping for now.`);
 
     // Initialize Game State if not exists
-    if (!gameStates.has(txid)) {
-        console.log(`[Check TX] Initializing new game state for ${txid}`);
-        const baseSeed = blockHash; // Use block hash as the base seed
-        console.log(`[Check TX] Generating cards using base seed (blockhash): ${baseSeed}`);
-        const allCards = utils.generateAllCards(participants, baseSeed);
-        
-        // Clean up uploaded file after use
-        fs.unlink(participantFilePath, (err) => {
-            if (err) console.error(`[Check TX] Error deleting uploaded file ${participantFilePath}:`, err);
-            else console.log(`[Check TX] Cleaned up uploaded file: ${participantFilePath}`);
-            uploadedFiles.delete(participantFilename); // Remove from map
-        });
+    console.log(`[Check TX] Initializing new game state for ${txid}`);
+    const baseSeed = blockHash; // Use block hash as the base seed
+    console.log(`[Check TX] Generating cards using base seed (blockhash): ${baseSeed}`);
+    const allCards = utils.generateAllCards(participants, baseSeed);
+    
+    // Clean up uploaded file after use
+    const filePathToDelete = path.join(UPLOADS_DIR, path.basename(participantFilename)); 
+    try {
+        await fs.promises.unlink(filePathToDelete);
+        console.log(`[Check TX] Successfully deleted uploaded file: ${filePathToDelete}`);
+    } catch (unlinkError) {
+        console.error(`[Check TX] Error deleting participant file ${filePathToDelete}:`, unlinkError);
+        // Decide if this should be a fatal error for the request. 
+        // For now, we'll log it but proceed as the game state is initialized.
+    }
 
-        // --- Generate GM Token during initialization --- 
-        const initialGmToken = crypto.randomBytes(16).toString('hex');
-        console.log(`[Check TX] Generated initial GM Token for ${txid}`);
+    // --- Generate GM Token during initialization --- 
+    const initialGmToken = crypto.randomBytes(16).toString('hex');
+    console.log(`[Check TX] Generated initial GM Token for ${txid}`);
 
-        gameStates.set(txid, {
-            txid: txid,
-            status: 'initialized',
-            blockHash: blockHash, // Store the block hash
-            participants: participants, // Store the fetched participants
-            baseSeed: baseSeed,
-            cards: allCards, 
-            drawnNumbers: [],
-            drawSequence: [], // Store the sequence of derived public keys
-            nextDerivationIndex: 0, 
-            gmToken: initialGmToken, // Store the generated GM token
-            lastDrawTime: null,
-            creationTime: Date.now(),
-            isOver: false, // NEW: Track if the game has a winner
-            winners: [] // NEW: Store usernames of winners
-        });
-        console.log(`[Check TX] Game state for ${txid} successfully initialized with ${allCards.length} cards.`);
-        
-        // --- Return the newly generated token only on initialization --- 
-        res.status(200).json({ 
-            message: 'Transaction confirmed and game state initialized/verified.',
-            txid: txid,
-            blockHash: blockHash,
-            participantCount: participants.length,
-            gmToken: initialGmToken // Include the new token
-        });
-        return; // Exit here after sending init response
-        
-    } else {
-        console.log(`[Check TX] Game state for ${txid} already exists.`);
-        const existingGameState = gameStates.get(txid); // Retrieve the existing state
-        // Optionally update participants if re-checking? For now, assume immutable after init.
-        // gameState.participants = participants; // If you want to allow updates
-        // gameState.blockHash = blockHash; // Should be the same, but can update
+    gameStates.set(txid, {
+        txid: txid,
+        status: 'initialized',
+        blockHash: blockHash, // Store the block hash
+        participants: participants, // Store the fetched participants
+        baseSeed: baseSeed,
+        cards: allCards, 
+        drawnNumbers: [],
+        drawSequence: [], // Store the sequence of derived public keys
+        nextDerivationIndex: 0, 
+        gmToken: initialGmToken, // Store the generated GM token
+        lastDrawTime: null,
+        creationTime: Date.now(),
+        isOver: false, // NEW: Track if the game has a winner
+        winners: [] // NEW: Store usernames of winners
+    });
+    console.log(`[Check TX] Game state for ${txid} successfully initialized with ${allCards.length} cards.`);
+    
+    // --- Return the newly generated token only on initialization --- 
+    res.status(200).json({ 
+        message: 'Transaction confirmed and game state initialized.',
+        txid: txid,
+        blockHash: blockHash,
+        participantCount: participants.length,
+        gmToken: initialGmToken // Include the new token
+    });
 
-        // --- If game already existed, don't send token ---
-        res.status(200).json({
-            message: 'Transaction confirmed and game state verified.', // Slightly different message
-            txid: txid,
-            blockHash: blockHash, // Use the blockHash fetched in this request context
-            // Use the retrieved existingGameState here
-            participantCount: existingGameState ? existingGameState.participants.length : 0 // Add a check in case it's somehow null/undefined
-        });
+    // Delete the uploaded file using the *validated* path
+    try {
+        await fs.promises.unlink(participantFilePath); // Use the path checked by existsSync
+        console.log(`[Check TX] Successfully deleted uploaded file: ${participantFilePath}`);
+    } catch (unlinkError) {
+        console.error(`[Check TX] Error deleting participant file ${participantFilePath}:`, unlinkError);
+        // Log and proceed
     }
 
   } catch (error) {
     console.error(`[Check TX] Error processing transaction ${txid}:`, error.message);
-    // Clean up uploaded file even on error?
-     if (participantFilePath && fs.existsSync(participantFilePath)) {
-        fs.unlink(participantFilePath, (err) => {
-            if (err) console.error(`[Check TX] Error deleting uploaded file ${participantFilePath} after error:`, err);
-            uploadedFiles.delete(participantFilename); // Remove from map
-        });
-     }
+    // Clean up file on error using the validated path
+    if (participantFilePath && fs.existsSync(participantFilePath)) { 
+        try {
+            await fs.promises.unlink(participantFilePath);
+            console.log(`[Check TX] Successfully deleted uploaded file after error: ${participantFilePath}`);
+        } catch (unlinkError) {
+            console.error(`[Check TX] Error deleting participant file ${participantFilePath} after error:`, unlinkError);
+        }
+    }
     
     let statusCode = 500;
     if (error.message.includes('Transaction ID not found')) statusCode = 404;
@@ -497,3 +518,6 @@ app.listen(PORT, () => {
   console.log(`BLOCKCYPHER_NETWORK: ${process.env.BLOCKCYPHER_NETWORK || 'Default (main)'}`);
 
 });
+
+// Export the app and gameStates for testing or direct use
+module.exports = { app, gameStates };
