@@ -34,3 +34,18 @@ Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correc
 - Added loading state (`isLoadingDraw`) to the Draw button in `PlayPage.jsx`. 
 
 - Updated `docs/tasks.md` roadmap to reflect completion of real-time polling, card marking, win detection, statistics calculation, and GM controls. 
+
+- Refactored `client/app/page.tsx` (Admin Page) to implement correct polling, game state handling (isGameOver, winners, statistics), and draw button logic, aligning it with `PlayPage.jsx`. 
+
+- Fixed TypeScript prop errors in `client/app/page.tsx` after component refactoring. 
+
+- Fixed duplicate path issue in TransactionCreator URL construction in `client/app/page.tsx`.
+- Restored side-by-side layout for Upload/Create Transaction cards in `client/app/page.tsx`. 
+
+- Made pollingError rendering in `client/app/page.tsx` robust against non-string values. 
+
+- Added more robust error message handling in `catch` blocks in `client/app/page.tsx` to ensure `pollingError` state is always a string. 
+
+- Made internal error/message rendering in `TransactionCreator.jsx` robust against non-string values. 
+
+- Made statistics rendering in `GameStateDisplay.jsx` robust against non-string values. 

@@ -225,8 +225,18 @@ const TransactionCreator = ({
 
   return (
     <div>
-      {error && <Alert variant="danger">{error}</Alert>}
-      {message && <Alert variant="info">{message}</Alert>}
+      {/* Robust rendering for error state */} 
+      {error && (
+          <Alert variant="danger">
+              {typeof error === 'string' ? error : JSON.stringify(error)}
+          </Alert>
+      )}
+      {/* Robust rendering for message state */} 
+      {message && (
+          <Alert variant="info">
+              {typeof message === 'string' ? message : JSON.stringify(message)}
+          </Alert>
+      )}
       
       {renderHexCIDInstructions()}
       {participantFilename && renderTxIdForm()}

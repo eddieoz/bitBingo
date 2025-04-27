@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card } from 'react-bootstrap'; // Removed Nav import
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Container, Row, Col, Card, Alert, Spinner } from 'react-bootstrap'; // Added Alert, Spinner
 // Assuming bootstrap CSS is imported globally in layout.tsx
 // import 'bootstrap/dist/css/bootstrap.min.css'; 
 import '../src/App.css'; // Adjust path to App.css
@@ -49,52 +49,121 @@ export default function AdminHomePage() { // Renamed back to default export
   });
   
   const [gmToken, setGmToken] = useState<string | null>(null); // Added type annotation
-  const [gameState, setGameState] = useState({ 
-      drawnNumbers: [] as number[], // Added type annotation
-      stats: [] as any[], // Use specific type if available (e.g., GameStateStat[])
-      drawIndex: 0, 
-      loading: false, 
-      error: null as string | null // Added type annotation
-  });
+  const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [winners, setWinners] = useState<string[]>([]);
+  const [statistics, setStatistics] = useState<string>('');
+  const [isLoadingDraw, setIsLoadingDraw] = useState(false);
+  const [pollingError, setPollingError] = useState<string | null>(null); // Separate error for polling
+  const pollingIntervalId = useRef<NodeJS.Timeout | null>(null); // Ref for interval ID
 
-  const fetchCurrentGameState = useCallback(async () => {
-     if (!raffleState.txId) return;
-    
-    // --- PREPEND /api here ---
-    const url = `${API_URL}/api/game-state/${raffleState.txId}?gm=true`; 
-    console.log('Fetching game state:', url);
-    setGameState(prev => ({ ...prev, loading: true, error: null }));
-    try {
-      const response = await axios.get(url);
-      setGameState(prev => ({
-        ...prev,
-        drawnNumbers: response.data.drawnNumbers || [],
-        stats: response.data.stats || [],
-        drawIndex: response.data.drawIndex || 0,
-        loading: false,
-      }));
-    } catch (error: any) { // Added type any for error
-      console.error('Error fetching game state:', error);
-      setGameState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        error: error.response?.data?.error || 'Failed to fetch game state' 
-      }));
-    }
+  // --- GM Token Check Effect (Run once on mount or when txId changes) --- 
+  useEffect(() => {
+      if (raffleState.txId) {
+          // Reuse function from PlayPage or define inline
+          const getStoredGmToken = (txid: string): string | null => {
+              try {
+                  const tokens = JSON.parse(localStorage.getItem('gmTokens') || '{}');
+                  return tokens[txid] || null;
+              } catch (e) {
+                  console.error("Error reading GM tokens from localStorage:", e);
+                  return null;
+              }
+          };
+          const storedToken = getStoredGmToken(raffleState.txId);
+          if (storedToken) {
+              console.log(`Found stored GM token for ${raffleState.txId}. Setting GM token.`);
+              setGmToken(storedToken);
+          } else {
+              console.log(`No stored GM token for ${raffleState.txId}.`);
+              setGmToken(null); // Ensure it's null if not found
+          }
+      }
   }, [raffleState.txId]);
 
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null; // Added type
-    if (raffleState.txConfirmed && gmToken) {
-      fetchCurrentGameState(); 
-      intervalId = setInterval(fetchCurrentGameState, 15000); // Poll every 15 seconds
+  // --- Polling Logic --- 
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalId.current) {
+      console.log('Stopping polling.');
+      clearInterval(pollingIntervalId.current);
+      pollingIntervalId.current = null;
     }
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+  }, []); // No dependencies needed for stopPolling
+
+  const fetchCurrentGameState = useCallback(async (currentTxId: string) => {
+     // Removed check: if (!raffleState.txId) return;
+     if (!currentTxId) return; // Check passed txId directly
+    
+    const url = `${API_URL}/api/game-state/${currentTxId}`; 
+    console.log('Polling game state:', url);
+    setPollingError(null); // Clear previous polling errors
+    // Removed loading state from old gameState structure
+
+    try {
+      const response = await axios.get(url);
+      const { drawnNumbers: newDrawnNumbers, isOver: newIsGameOver, winners: newWinners, statistics: newStatistics } = response.data;
+
+      setDrawnNumbers(newDrawnNumbers || []);
+      setStatistics(newStatistics || '');
+
+      if (newIsGameOver) {
+        console.log('Game is over. Winners:', newWinners);
+        setIsGameOver(true);
+        setWinners(newWinners || []);
+        stopPolling(); // Stop polling once game is over
+      } else {
+        // Ensure game over state is reset if backend somehow reverts it
+        setIsGameOver(false);
+        setWinners([]);
       }
-    };
-  }, [raffleState.txConfirmed, gmToken, fetchCurrentGameState]);
+      
+    } catch (error: any) {
+      console.error('Error polling game state:', error);
+      // Ensure we get a string, default to generic message
+      let errorMsg = 'Failed to fetch game state';
+      if (error.response?.data?.message && typeof error.response.data.message === 'string') {
+        errorMsg = error.response.data.message;
+      } else if (error.message && typeof error.message === 'string') {
+        errorMsg = error.message;
+      } else if (typeof error === 'string') {
+          errorMsg = error;
+      } // If it's still an object, errorMsg remains the default string
+
+      setPollingError(errorMsg);
+      // Consider stopping polling on certain errors (e.g., 404 Not Found)
+      if (error.response?.status === 404) {
+          console.log('Polling stopped due to 404 error.');
+          stopPolling();
+      }
+      // Clear state if game not found?
+      // setDrawnNumbers([]); setStatistics(''); setIsGameOver(false); setWinners([]);
+    }
+  }, [stopPolling]); // Depends on stopPolling callback
+
+  const startPolling = useCallback((txid: string) => {
+      if (!txid || pollingIntervalId.current) return; // Don't start if no txid or already polling
+      stopPolling(); // Clear any existing interval
+      console.log(`Starting polling for ${txid}`);
+      fetchCurrentGameState(txid); // Fetch immediately
+      pollingIntervalId.current = setInterval(() => fetchCurrentGameState(txid), 2000);
+  }, [fetchCurrentGameState, stopPolling]); // Depends on fetch/stop callbacks
+
+  // --- Effect to Start/Stop Polling Based on txId --- 
+  useEffect(() => {
+    if (raffleState.txId) {
+      startPolling(raffleState.txId);
+    } else {
+      stopPolling();
+      // Reset game state when txId is cleared
+      setDrawnNumbers([]);
+      setIsGameOver(false);
+      setWinners([]);
+      setStatistics('');
+      setPollingError(null);
+    }
+    // Cleanup function to stop polling when component unmounts or txId changes
+    return () => stopPolling(); 
+  }, [raffleState.txId, startPolling, stopPolling]); // Include start/stop in dependencies
 
   const handleFileUploadSuccess = (data: { filename: string, message: string }) => { // More specific type for data
      console.log('File upload successful, API response:', data);
@@ -131,53 +200,85 @@ export default function AdminHomePage() { // Renamed back to default export
   // const checkTransactionStatus = ...
 
   const handleDrawNumber = async () => {
-      // --- ADJUSTED Check: Only require txId --- 
       if (!raffleState.txId) { 
-      console.error('Cannot draw number: Missing txId.');
-      setGameState(prev => ({ ...prev, error: 'Missing txId.' }));
-      return;
-    }
-    // if (!raffleState.txId || !gmToken) { // Old check requiring token
-    //   console.error('Cannot draw number: Missing txId or GM token.');
-    //   setGameState(prev => ({ ...prev, error: 'Missing txId or GM token.' }));
-    //   return;
-    // }
-
-    setGameState(prev => ({ ...prev, loading: true, error: null }));
-    
-    // --- Conditionally Set Headers --- 
-    const headers: { Authorization?: string } = {}; // Use type for headers
-    if (gmToken) {
-        headers.Authorization = `Bearer ${gmToken}`;
-        console.log('Sending draw request with GM Token.');
-    } else {
-        console.log('Sending first draw request (no GM Token).');
-    }
-    
-    try {
-      const response = await axios.post(
-        `${API_URL}/api/draw/${raffleState.txId}`, 
-        null, // No request body needed for draw
-        { headers: headers } // Pass conditional headers
-      );
-      console.log('Draw successful:', response.data);
-      // Immediately fetch game state after successful draw
-      fetchCurrentGameState(); 
-      
-      // --- ADD Check for GM Token in Draw Response --- 
-      if (response.data.gmToken && !gmToken) { // Check if token exists in response AND we don't have one yet
-          console.log('Received and storing GM Token from draw response:', response.data.gmToken);
-          setGmToken(response.data.gmToken);
+        console.error('Cannot draw number: Missing txId.');
+        setPollingError('Cannot draw number: Missing txId.'); // Use pollingError state
+        return;
       }
       
-    } catch (error: any) { // Added type
-      console.error('Error drawing number:', error);
-      setGameState(prev => ({
-        ...prev,
-        loading: false,
-        error: error.response?.data?.error || 'Failed to draw number'
-      }));
-    }
+      // --- NEW: Check if game over or draw loading ---
+      if (isLoadingDraw || isGameOver) {
+          console.log('Draw attempt blocked:', { isLoadingDraw, isGameOver });
+          return; 
+      }
+
+      setIsLoadingDraw(true); // Set loading true
+      setPollingError(null); // Clear previous errors
+      
+      const headers: { Authorization?: string } = {};
+      if (gmToken) {
+          headers.Authorization = `Bearer ${gmToken}`;
+          console.log('Sending draw request with GM Token.');
+      } else {
+          console.log('Sending first draw request (no GM Token).');
+      }
+      
+      try {
+        const response = await axios.post(
+          `${API_URL}/api/draw/${raffleState.txId}`, 
+          null, 
+          { headers: headers } 
+        );
+        console.log('Draw successful:', response.data);
+        // Immediately fetch game state ONLY if the draw didn't end the game
+        if (!response.data.isOver) {
+             fetchCurrentGameState(raffleState.txId); 
+        } else {
+            // If draw caused game over, update state directly from response
+            // to avoid waiting for the next poll cycle
+            console.log('Draw ended the game. Updating state directly.');
+            setDrawnNumbers(prev => [...prev, response.data.drawnNumber]); // Add the last drawn number
+            setIsGameOver(true);
+            setWinners(response.data.winners || []);
+            // Fetch stats one last time if needed, or rely on previous poll?
+            // Let's fetch it to be sure it reflects the final state
+            fetchCurrentGameState(raffleState.txId); 
+            stopPolling(); // Ensure polling stops
+        }
+        
+        if (response.data.gmToken && !gmToken) {
+            console.log('Received and storing GM Token from draw response:', response.data.gmToken);
+            // Store in local storage as well
+            const storeToken = (txid: string, token: string) => {
+               try {
+                   const tokens = JSON.parse(localStorage.getItem('gmTokens') || '{}');
+                   tokens[txid] = token;
+                   localStorage.setItem('gmTokens', JSON.stringify(tokens));
+                   console.log(`Stored GM token for ${txid}`);
+               } catch (e) {
+                   console.error("Error storing GM token in localStorage:", e);
+               }
+            };
+            storeToken(raffleState.txId, response.data.gmToken);
+            setGmToken(response.data.gmToken);
+        }
+        
+      } catch (error: any) {
+        console.error('Error drawing number:', error);
+        // Ensure we get a string, default to generic message
+        let errorMsg = 'Failed to draw number';
+        if (error.response?.data?.message && typeof error.response.data.message === 'string') {
+          errorMsg = error.response.data.message;
+        } else if (error.message && typeof error.message === 'string') {
+          errorMsg = error.message;
+        } else if (typeof error === 'string') {
+            errorMsg = error;
+        } // If it's still an object, errorMsg remains the default string
+
+        setPollingError(errorMsg);
+      } finally {
+          setIsLoadingDraw(false); // Set loading false
+      }
   };
 
   const handleReset = async () => {
@@ -195,7 +296,11 @@ export default function AdminHomePage() { // Renamed back to default export
         error: null,
       });
       setGmToken(null);
-      setGameState({ drawnNumbers: [], stats: [], drawIndex: 0, loading: false, error: null });
+      setDrawnNumbers([]);
+      setIsGameOver(false);
+      setWinners([]);
+      setStatistics('');
+      setPollingError(null);
       
     // --- ADD DEBUG LOG --- 
     console.log('State immediately after reset calls:', {
@@ -253,84 +358,105 @@ export default function AdminHomePage() { // Renamed back to default export
         </Col>
       </Row>
 
-      <Row>
-        <Col lg={6} className="mb-4">
-          <Card className="h-100">
-            <Card.Header>1. Upload Participant List</Card.Header>
-            <Card.Body>
-              <FileUpload 
-                onUploadSuccess={handleFileUploadSuccess} 
-                isDisabled={raffleState.fileUploaded}
-                apiUrl={API_URL}
-              />
-            </Card.Body>
-          </Card>
-        </Col>
+      {/* === Force string rendering for pollingError === */} 
+      {pollingError != null && (
+          <Alert variant="danger">
+              {String(pollingError)}
+          </Alert>
+      )}
 
-        <Col lg={6} className="mb-4">
-          <Card className="h-100" id="transaction-creator-component">
-            <Card.Header>2. Submit Transaction Information</Card.Header>
-            <Card.Body>
-              <TransactionCreator 
-                onTransactionCreated={handleTransactionCreated}
-                onTransactionConfirmed={handleTransactionConfirmed}
-                isDisabled={!raffleState.fileUploaded || raffleState.txId !== null}
-                isConfirmed={raffleState.txConfirmed}
-                fileHash={raffleState.fileHash}
-                txId={raffleState.txId}
-                participantFilename={raffleState.participantFilename}
-                blockHash={raffleState.blockHash}
-                apiUrl={API_URL}
-                onReset={handleReset}
-              />
-            </Card.Body>
-          </Card>
-        </Col>
+      {/* Combined Row for Upload and Transaction Creation */} 
+      <Row className="mb-4">
+          {/* Column 1: Upload Participants (Always shown initially, content disabled later) */} 
+          <Col md={6}>
+              <Card>
+                  <Card.Header>1. Upload Participants</Card.Header>
+                  <Card.Body>
+                      <FileUpload 
+                          apiUrl={API_URL}
+                          onUploadSuccess={handleFileUploadSuccess} 
+                          isDisabled={raffleState.fileUploaded} // Disables controls inside component
+                      />
+                  </Card.Body>
+              </Card>
+          </Col>
+
+          {/* Column 2: Create Transaction (Conditionally shown based on state) */} 
+          <Col md={6}>
+              {/* Only render the card if file is uploaded and no txId yet */} 
+              {raffleState.fileUploaded && raffleState.participantFilename && !raffleState.txId && (
+                  <Card>
+                      <Card.Header>2. Create Transaction</Card.Header>
+                      <Card.Body>
+                          <TransactionCreator 
+                              apiUrl={API_URL}
+                              participantFilename={raffleState.participantFilename} 
+                              onTransactionCreated={handleTransactionCreated} 
+                              onTransactionConfirmed={handleTransactionConfirmed}
+                              isDisabled={raffleState.txId !== null} 
+                              isConfirmed={raffleState.txConfirmed}
+                              txId={raffleState.txId}
+                              blockHash={raffleState.blockHash}
+                              onReset={handleReset} 
+                              fileHash={null} 
+                          />
+                      </Card.Body>
+                  </Card>
+              )}
+              {/* Optional: Show placeholder or message if conditions not met */} 
+              {(!raffleState.fileUploaded || !raffleState.participantFilename || raffleState.txId) && (
+                  <Card className="h-100 border-dashed">
+                      <Card.Body className="d-flex align-items-center justify-content-center">
+                          <p className="text-muted">{raffleState.txId ? "Transaction submitted." : "Upload participants first."}</p>
+                      </Card.Body>
+                  </Card>
+              )}
+          </Col>
       </Row>
 
-      <Row>
-        <Col className="mb-4">
-          <Card>
-            <Card.Header>3. Game Status & Control</Card.Header>
-            <Card.Body>
-              {/* --- ADJUSTED Rendering Logic --- */}
-              {raffleState.txConfirmed ? ( // Show controls once TX is confirmed
-                <>
-                  {/* GameStateDisplay might still need gmToken if it uses GM-specific data */}
-                  {gmToken ? ( 
-                    <GameStateDisplay 
-                      gameState={gameState} 
-                      onRefresh={fetchCurrentGameState} 
-                    />
-                  ) : (
-                    <p className="text-info">Game state details will appear after the first number is drawn.</p>
-                  )}
-                  
-                  {/* Draw button only needs txConfirmed */}
-                  <DrawNumberButton 
-                    onDraw={handleDrawNumber} 
-                    isLoading={gameState.loading}
-                    isDisabled={gameState.loading || gameState.drawnNumbers.length >= 75} 
-                  />
-                </>
-              ) : (
-                <p className="text-muted">
-                   {/* Message when TX not confirmed */}
-                   Waiting for transaction confirmation...
-                </p>
-              )}
-              {/* Display message specifically about needing the first draw for token */} 
-              {raffleState.txConfirmed && !gmToken && (
-                   <p className="text-info mt-2">Click "Draw Number" to start the game and get the Game Master token.</p>
-              )}
+      {/* Section for Game Control and State - Shown when TX is available */} 
+      {raffleState.txId && (
+          <Row className="mb-4">
+              <Col>
+                  <Card>
+                      <Card.Header>Game Management (TxID: {raffleState.txId})</Card.Header>
+                      <Card.Body>
+                          {/* Transaction Confirmation Check - Maybe move logic into TransactionCreator or RaffleStatus */} 
+                          {!raffleState.txConfirmed && (
+                              <p>Waiting for transaction confirmation...</p> 
+                              // Potentially add a manual check button if TransactionCreator doesn't poll
+                          )}
+                          
+                          {/* Game Over Display */} 
+                          {isGameOver && (
+                              <Alert variant="success">
+                                  <h4>Game Over!</h4>
+                                  <p>Winner(s): <strong>{winners.join(', ')}</strong></p>
+                              </Alert>
+                          )}
+                          
+                          {/* Draw Button */} 
+                          {raffleState.txConfirmed && (
+                              <DrawNumberButton 
+                                  onDraw={handleDrawNumber} 
+                                  isDisabled={isGameOver || isLoadingDraw}
+                                  isLoading={isLoadingDraw}
+                              />
+                          )}
+                          {!raffleState.txConfirmed && (
+                              <p className="text-muted">Please wait for transaction confirmation before drawing numbers.</p>
+                          )}
 
-              {/* Display errors separately */} 
-              {raffleState.error && <p className='text-danger mt-2'>Status Error: {raffleState.error}</p>} 
-              {gameState.error && <p className='text-danger mt-2'>Game State Error: {gameState.error}</p>} 
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+                          {/* Game State Display */} 
+                          <GameStateDisplay 
+                              drawnNumbers={drawnNumbers} 
+                              statistics={statistics}
+                          />
+                      </Card.Body>
+                  </Card>
+              </Col>
+          </Row>
+      )}
       
       <Footer /> { /* Keep Footer if desired */ }
     </Container>
