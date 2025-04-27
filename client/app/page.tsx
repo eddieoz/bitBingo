@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Container, Row, Col, Card, Alert, Spinner } from 'react-bootstrap'; // Added Alert, Spinner
+import { Container, Row, Col, Card, Alert, Spinner, Button, Modal, ButtonGroup } from 'react-bootstrap'; // Added Alert, Spinner, Button, Modal, ButtonGroup
 // Assuming bootstrap CSS is imported globally in layout.tsx
 // import 'bootstrap/dist/css/bootstrap.min.css'; 
 import '../src/App.css'; // Adjust path to App.css
@@ -13,6 +13,7 @@ import axios from 'axios';
 import GameStateDisplay from '../src/components/GameStateDisplay'; // Adjust path
 import DrawNumberButton from '../src/components/DrawNumberButton'; // Adjust path
 import type { WinnerInfo } from '../src/types/index'; // Adjust path and import WinnerInfo
+import QRCode from 'qrcode'; // Import from the base qrcode library
 
 // Ensure NEXT_PUBLIC_ prefix for client-side access in Next.js
 // --- CHANGED API_URL Definition ---
@@ -31,6 +32,13 @@ interface RaffleState {
   participantFilename: string | null;
   loading: boolean;
   error: string | null;
+}
+
+// --- Helper function to shorten TX ID ---
+function shortenTxId(txId: string | null, startLength = 6, endLength = 6): string {
+  if (!txId) return '';
+  if (txId.length <= startLength + endLength) return txId;
+  return `${txId.substring(0, startLength)}...${txId.substring(txId.length - endLength)}`;
 }
 
 // Renamed AdminPage to HomePage or just export default function
@@ -57,6 +65,9 @@ export default function AdminHomePage() { // Renamed back to default export
   const [isLoadingDraw, setIsLoadingDraw] = useState(false);
   const [pollingError, setPollingError] = useState<string | null>(null);
   const pollingIntervalId = useRef<NodeJS.Timeout | null>(null);
+  // === Restore QR code state ===
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null); // State for Data URL
 
   // --- GM Token Check Effect (Run once on mount or when txId changes) --- 
   useEffect(() => {
@@ -340,14 +351,67 @@ export default function AdminHomePage() { // Renamed back to default export
   // --- ADD DEBUG LOG --- 
   console.log('AdminHomePage rendering with raffleState:', raffleState);
 
+  const playerPageUrl = raffleState.txId ? `${window.location.origin}/play/${raffleState.txId}` : '';
+
+  const handleCopyLink = () => {
+    if (!playerPageUrl) return;
+    navigator.clipboard.writeText(playerPageUrl)
+      .then(() => {
+        alert('Player link copied to clipboard!'); // Or use a more subtle notification
+      })
+      .catch(err => {
+        console.error('Failed to copy link: ', err);
+        alert('Failed to copy link.');
+      });
+  };
+
+  // === Restore QR code handlers ===
+  const handleShowQr = () => setShowQrModal(true);
+  const handleCloseQr = () => {
+    setShowQrModal(false);
+    setQrCodeDataUrl(null); // Clear data URL when closing
+  };
+
+  // --- Effect to generate QR Code Data URL when modal opens --- 
+  useEffect(() => {
+    if (showQrModal && playerPageUrl) {
+      QRCode.toDataURL(playerPageUrl, { errorCorrectionLevel: 'H', margin: 2, width: 384 })
+        .then(url => {
+          setQrCodeDataUrl(url);
+        })
+        .catch(err => {
+          console.error('Failed to generate QR code:', err);
+          // Optionally show an error message in the modal
+          setQrCodeDataUrl(null); // Ensure it's null on error
+        });
+    } else {
+       setQrCodeDataUrl(null); // Clear if modal closed or no URL
+    }
+  }, [showQrModal, playerPageUrl]); // Re-run if modal state or URL changes
+
   return (
     <Container>
        <header className="App-header my-4"> {/* Kept App-header class for styling */} 
         <h1>bitBingo - Admin</h1>
-        <p className="lead">Manage the Bingo Game Setup</p>
-        {/* Simple Link to Player Page Base */} 
-        {raffleState.txId && (
-          <p><a href={`/play/${raffleState.txId}`} target="_blank" rel="noopener noreferrer">Go to Player Page for {raffleState.txId}</a></p>
+        <p className="lead mb-3">Manage the Bingo Game Setup</p> {/* Added mb-3 */}
+        {/* === Player Link Section Updated - Simplified Design === */}
+        {raffleState.txId && playerPageUrl && (
+          <div className="mb-3 d-flex align-items-center justify-content-start flex-wrap">
+            <strong className="me-2">Player Page:</strong>
+            <a href={playerPageUrl} target="_blank" rel="noopener noreferrer" className="me-3 text-break">
+              {/* Display shortened link - adjusted for context */}
+              {`${window.location.origin}/play/${shortenTxId(raffleState.txId)}`}
+            </a>
+            <ButtonGroup size="sm">
+              <Button variant="outline-secondary" onClick={handleCopyLink}>
+                Copy Link
+              </Button>
+              {/* === Restore QR code button === */}
+              <Button variant="outline-info" onClick={handleShowQr}>
+                QR Code
+              </Button>
+            </ButtonGroup>
+          </div>
         )}
       </header>
 
@@ -360,8 +424,8 @@ export default function AdminHomePage() { // Renamed back to default export
         </Col>
       </Row>
 
-      {/* === Force string rendering for pollingError === */} 
-      {pollingError != null && (
+      {/* === Force string rendering for pollingError - Fixed null check === */}
+      {pollingError !== null && (
           <Alert variant="danger">
               {String(pollingError)}
           </Alert>
@@ -466,6 +530,28 @@ export default function AdminHomePage() { // Renamed back to default export
       )}
       
       <Footer /> { /* Keep Footer if desired */ }
+
+      {/* === QR Code Modal (uses img with data URL) === */}
+      <Modal show={showQrModal} onHide={handleCloseQr} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Player Page QR Code</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center">
+          {qrCodeDataUrl ? (
+            <img src={qrCodeDataUrl} alt="Player Page QR Code" style={{ maxWidth: '100%', height: 'auto' }} />
+          ) : (
+            <p>Generating QR Code...</p> // Loading/Error state
+          )}
+          <p className="mt-3">Scan this code to go to the player page.</p>
+          <p><small>{playerPageUrl}</small></p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseQr}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
     </Container>
   );
 } 
