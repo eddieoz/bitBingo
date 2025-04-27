@@ -45,4 +45,14 @@
     border-radius: 50%; /* Optional: Make it circular */
     /* Add transition for visual effect if desired */
     transition: background-color 0.3s ease;
+}
+
+/* Style for numbers that are part of the winning sequence */
+.winning-number {
+    background-color: #ffc107 !important; /* Gold/Yellow background */
+    color: #343a40 !important; /* Darker text for contrast */
+    font-weight: bold;
+    /* Optionally add a border or different shape */
+    border: 2px solid #e0a800; /* Darker gold border */
+    border-radius: 5px; /* Slightly rounded corners */
 } 

@@ -4,19 +4,23 @@ import React, { useState, use } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserLogin } from '@/components/UserLogin';
 import UserCardsDisplay from '@/components/user-cards-display/UserCardsDisplay';
-import type { UserCardData, GameState, UserSession, GameStateStat } from '@/types/index';
+import type { UserCardData, GameState, UserSession, GameStateStat, WinnerInfo } from '@/types/index';
 import axios from 'axios';
 import { Container, Alert, Badge, Button } from 'react-bootstrap';
 
 // API fetch function (always fetch as non-GM)
 const fetchGameState = async (txid: string): Promise<GameState> => {
-  // Use the environment variable for the API base URL
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  const url = `${apiUrl}/game-state/${txid}`; // Use absolute URL
+  // Use the environment variable for the API base URL (assume it's the base, like http://localhost:5000)
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; // Default is BASE url
+  const url = `${baseUrl}/api/game-state/${txid}`; // Explicitly add /api path
   console.log(`Fetching game state from: ${url}`); // Log the absolute URL
   const { data } = await axios.get(url);
-  // Ensure drawnNumbers is always an array, even if missing from response
-  return { ...data, drawnNumbers: data.drawnNumbers || [] };
+  // Ensure drawnNumbers and winners are always arrays
+  return { 
+      ...data, 
+      drawnNumbers: data.drawnNumbers || [], 
+      winners: data.winners || [] // Ensure winners is also defaulted to empty array
+  };
 };
 
 // Helper to get BINGO letter for a number
@@ -31,7 +35,6 @@ function getBingoLetter(num: number): string {
 
 // Define props for the page, including txid
 interface PlayPageProps {
-  // params object itself might be a promise-like structure
   params: { 
      txid: string;
   }
@@ -42,9 +45,8 @@ interface PlayPageProps {
 
 // Update component definition to accept props
 export default function PlayPage({ params }: PlayPageProps) {
-  // Resolve params using the use() hook
-  const resolvedParams = use(params); 
-  const { txid } = resolvedParams; // Destructure txid from the resolved params
+  // Get txid directly from params prop
+  const { txid } = params;
   
   const queryClient = useQueryClient();
   const [userSession, setUserSession] = useState<UserSession | null>(null);
@@ -77,6 +79,12 @@ export default function PlayPage({ params }: PlayPageProps) {
     refetchIntervalInBackground: true,
   });
 
+  // Determine if the current user is a winner and get their winning sequence
+  const currentUserWinnerInfo = userSession && gameState?.isOver && gameState.winners 
+    ? gameState.winners.find(winner => winner.username.toLowerCase() === userSession.nickname.toLowerCase())
+    : null;
+  const winningSequence = currentUserWinnerInfo ? currentUserWinnerInfo.sequence : null;
+
   if (!txid) {
     // This check might be less necessary with App Router structure
     return <Container><div className="p-4 text-red-500">Error: Transaction ID is missing.</div></Container>;
@@ -86,6 +94,21 @@ export default function PlayPage({ params }: PlayPageProps) {
     <Container className="py-4">
       <h1 className="text-3xl font-bold mb-4">bitBingo Game</h1>
       <p className="mb-1">Game Transaction ID: <strong>{txid}</strong></p>
+
+      {/* Winner Announcement Banner - Updated */} 
+      {gameState?.isOver && gameState.winners && gameState.winners.length > 0 && (
+        <Alert variant="success" className="mt-3 mb-4">
+          <Alert.Heading className="text-center">BINGO! We have a winner{gameState.winners.length > 1 ? 's' : ''}!</Alert.Heading>
+          <hr />
+          {gameState.winners.map((winner, index) => (
+            <div key={index} className="mb-2 text-center">
+              <p className="mb-0 lead"><strong>{winner.username}</strong></p>
+              <small className="text-muted">Sequence: {winner.sequence.join(', ' )}</small>
+            </div>
+          ))}
+        </Alert>
+      )}
+
       {loginError && (
          <Alert variant="danger" className="mt-3">Error: {loginError}</Alert>
       )}
@@ -126,6 +149,7 @@ export default function PlayPage({ params }: PlayPageProps) {
            <UserCardsDisplay 
               cards={userSession.cards} 
               drawnNumbers={gameState?.drawnNumbers || []} 
+              winningSequence={winningSequence}
            />
            <Button 
               onClick={handleLogout}

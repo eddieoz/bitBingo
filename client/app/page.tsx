@@ -12,6 +12,7 @@ import Footer from '../src/components/Footer'; // Adjust path
 import axios from 'axios';
 import GameStateDisplay from '../src/components/GameStateDisplay'; // Adjust path
 import DrawNumberButton from '../src/components/DrawNumberButton'; // Adjust path
+import type { WinnerInfo } from '../src/types/index'; // Adjust path and import WinnerInfo
 
 // Ensure NEXT_PUBLIC_ prefix for client-side access in Next.js
 // --- CHANGED API_URL Definition ---
@@ -48,14 +49,14 @@ export default function AdminHomePage() { // Renamed back to default export
     error: null,
   });
   
-  const [gmToken, setGmToken] = useState<string | null>(null); // Added type annotation
+  const [gmToken, setGmToken] = useState<string | null>(null);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
   const [isGameOver, setIsGameOver] = useState(false);
-  const [winners, setWinners] = useState<string[]>([]);
+  const [winners, setWinners] = useState<WinnerInfo[]>([]);
   const [statistics, setStatistics] = useState<string>('');
   const [isLoadingDraw, setIsLoadingDraw] = useState(false);
-  const [pollingError, setPollingError] = useState<string | null>(null); // Separate error for polling
-  const pollingIntervalId = useRef<NodeJS.Timeout | null>(null); // Ref for interval ID
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const pollingIntervalId = useRef<NodeJS.Timeout | null>(null);
 
   // --- GM Token Check Effect (Run once on mount or when txId changes) --- 
   useEffect(() => {
@@ -91,13 +92,11 @@ export default function AdminHomePage() { // Renamed back to default export
   }, []); // No dependencies needed for stopPolling
 
   const fetchCurrentGameState = useCallback(async (currentTxId: string) => {
-     // Removed check: if (!raffleState.txId) return;
-     if (!currentTxId) return; // Check passed txId directly
+     if (!currentTxId) return;
     
-    const url = `${API_URL}/api/game-state/${currentTxId}`; 
+    const url = `${API_URL}/api/game-state/${currentTxId}`;
     console.log('Polling game state:', url);
-    setPollingError(null); // Clear previous polling errors
-    // Removed loading state from old gameState structure
+    setPollingError(null);
 
     try {
       const response = await axios.get(url);
@@ -105,16 +104,14 @@ export default function AdminHomePage() { // Renamed back to default export
 
       setDrawnNumbers(newDrawnNumbers || []);
       setStatistics(newStatistics || '');
+      setWinners(newWinners || []);
 
       if (newIsGameOver) {
         console.log('Game is over. Winners:', newWinners);
         setIsGameOver(true);
-        setWinners(newWinners || []);
-        stopPolling(); // Stop polling once game is over
+        stopPolling();
       } else {
-        // Ensure game over state is reset if backend somehow reverts it
         setIsGameOver(false);
-        setWinners([]);
       }
       
     } catch (error: any) {
@@ -135,10 +132,8 @@ export default function AdminHomePage() { // Renamed back to default export
           console.log('Polling stopped due to 404 error.');
           stopPolling();
       }
-      // Clear state if game not found?
-      // setDrawnNumbers([]); setStatistics(''); setIsGameOver(false); setWinners([]);
     }
-  }, [stopPolling]); // Depends on stopPolling callback
+  }, [stopPolling]);
 
   const startPolling = useCallback((txid: string) => {
       if (!txid || pollingIntervalId.current) return; // Don't start if no txid or already polling
@@ -426,19 +421,24 @@ export default function AdminHomePage() { // Renamed back to default export
                               // Potentially add a manual check button if TransactionCreator doesn't poll
                           )}
                           
-                          {/* Game Over Display */} 
-                          {isGameOver && (
+                          {/* Game Over Display - Updated */} 
+                          {isGameOver && winners.length > 0 && (
                               <Alert variant="success">
-                                  <h4>Game Over!</h4>
-                                  <p>Winner(s): <strong>{winners.join(', ')}</strong></p>
+                                  <h4 className="alert-heading">Game Over! Winner{winners.length > 1 ? 's' : ''}:</h4>
+                                  {winners.map((winner, index) => (
+                                    <div key={index} className="mb-2">
+                                      <p className="mb-0"><strong>{winner.username}</strong></p>
+                                      <small>Sequence: {winner.sequence.join(', ' )}</small>
+                                    </div>
+                                  ))}
                               </Alert>
                           )}
                           
                           {/* Draw Button */} 
-                          {raffleState.txConfirmed && (
+                          {raffleState.txConfirmed && !isGameOver && (
                               <DrawNumberButton 
                                   onDraw={handleDrawNumber} 
-                                  isDisabled={isGameOver || isLoadingDraw}
+                                  isDisabled={isLoadingDraw} // Simplified isDisabled
                                   isLoading={isLoadingDraw}
                               />
                           )}

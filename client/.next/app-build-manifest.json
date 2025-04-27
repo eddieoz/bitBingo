@@ -6,6 +6,12 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/play/[txid]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/play/[txid]/page.css",
+      "static/chunks/app/play/[txid]/page.js"
+    ],
     "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",

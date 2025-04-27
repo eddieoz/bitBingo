@@ -17,28 +17,26 @@ export function UserLogin({ txid, onLoginSuccess, onLoginError }) {
     }
 
     setIsLoading(true);
+    const trimmedNickname = nickname.trim();
     
     try {
-      // Use txid and nickname to fetch cards
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      console.log('Attempting to fetch cards from:', `${apiUrl}/cards`); // Log the URL
-      const response = await axios.get(`${apiUrl}/cards`, {
-        params: { txId: txid, nickname: nickname.trim() }
-      });
+      // Use the base URL from environment or default
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; 
+      // Construct the correct URL with path parameters
+      const url = `${baseUrl}/api/cards/${txid}/${encodeURIComponent(trimmedNickname)}`;
+      console.log('Attempting to fetch cards from:', url);
+      const response = await axios.get(url); // Use the correctly constructed URL
       
-      // Assuming success means we got data with a cards array
       if (response.data && response.data.cards) {
          if (response.data.cards.length > 0) {
-            // Call success callback with the required UserSession structure
             onLoginSuccess({ 
-                nickname: nickname.trim(), 
+                nickname: trimmedNickname, // Use the trimmed nickname
                 cards: response.data.cards 
             });
          } else {
-             onLoginError(`No cards found for nickname '${nickname.trim()}' in this game.`);
+             onLoginError(`No cards found for nickname '${trimmedNickname}' in this game.`);
          }
       } else {
-        // Handle unexpected response structure
         console.error('Unexpected response structure:', response.data);
         onLoginError('Received an unexpected response from the server.');
       }

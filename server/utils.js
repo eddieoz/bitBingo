@@ -429,57 +429,85 @@ function calculateMaxMarkedInLine(grid, drawnNumbers) {
 
 // --- NEW: Check for Win Condition (Corrected for Column-Object Grid) ---
 // Renamed from checkBingo
+/**
+ * Checks if a bingo card has a winning line based on drawn numbers.
+ * @param {object} grid The bingo card grid.
+ * @param {number[]} drawnNumbers Array of drawn numbers.
+ * @returns {(number | string)[] | null} An array representing the winning line 
+ * (numbers and/or the string "FREE") or null if no win.
+ */
 function checkWinCondition(grid, drawnNumbers) {
     const drawnSet = new Set(drawnNumbers);
     const size = 5;
 
-    if (!grid || !drawnSet) return false; // Basic validation
+    if (!grid || !drawnSet) return null;
 
-    // Helper to check if a cell is marked (handles Free Space)
-    const isMarked = (colLetter, rowIndex) => {
-        if (colLetter === 'N' && rowIndex === 2) return true; // Free Space
+    // Helper to check if a cell is marked and return its value (number or "FREE")
+    const getMarkedValue = (colLetter, rowIndex) => {
         const number = grid[colLetter]?.[rowIndex];
-        return number !== null && number !== undefined && drawnSet.has(number);
+        if (colLetter === 'N' && rowIndex === 2) return "FREE"; // Free space marked as string
+        if (number !== null && number !== undefined && drawnSet.has(number)) {
+            return number;
+        }
+        return undefined; // Indicate not marked or not drawn
     };
 
     // Check rows
     for (let r = 0; r < size; r++) {
+        const winningLine = [];
         let rowComplete = true;
         for (let c = 0; c < size; c++) {
-            if (!isMarked(columns[c], r)) {
+            const markedValue = getMarkedValue(columns[c], r);
+            if (markedValue === undefined) {
                 rowComplete = false;
                 break;
             }
+            winningLine.push(markedValue); // Add number or "FREE"
         }
-        if (rowComplete) return true;
+        if (rowComplete) return winningLine;
     }
 
     // Check columns
     for (let c = 0; c < size; c++) {
+        const winningLine = [];
         let colComplete = true;
         for (let r = 0; r < size; r++) {
-            if (!isMarked(columns[c], r)) {
+            const markedValue = getMarkedValue(columns[c], r);
+            if (markedValue === undefined) {
                 colComplete = false;
                 break;
             }
+            winningLine.push(markedValue);
         }
-        if (colComplete) return true;
+        if (colComplete) return winningLine;
     }
 
     // Check diagonals
-    let diag1Complete = true; // Top-left to bottom-right
-    let diag2Complete = true; // Top-right to bottom-left
+    let diag1Complete = true;
+    const diag1Line = [];
     for (let i = 0; i < size; i++) {
-        if (!isMarked(columns[i], i)) {
+        const markedValue = getMarkedValue(columns[i], i);
+        if (markedValue === undefined) {
             diag1Complete = false;
+            break;
         }
-        if (!isMarked(columns[i], size - 1 - i)) {
-            diag2Complete = false;
-        }
+        diag1Line.push(markedValue);
     }
-    if (diag1Complete || diag2Complete) return true;
+    if (diag1Complete) return diag1Line;
 
-    return false;
+    let diag2Complete = true;
+    const diag2Line = [];
+    for (let i = 0; i < size; i++) {
+        const markedValue = getMarkedValue(columns[i], size - 1 - i);
+        if (markedValue === undefined) {
+            diag2Complete = false;
+            break;
+        }
+        diag2Line.push(markedValue);
+    }
+    if (diag2Complete) return diag2Line;
+
+    return null; // No win found
 }
 
 module.exports = {

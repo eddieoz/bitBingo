@@ -7,8 +7,9 @@ import BingoCard from '../bingo-card/BingoCard'; // Import the single card compo
  * @param {object} props - Component props.
  * @param {Array<object>} props.cards - Array of card objects.
  * @param {Array<number>} props.drawnNumbers - Array of drawn numbers.
+ * @param {Array<number> | null} [props.winningSequence] - Optional winning sequence for highlighting.
  */
-function UserCardsDisplay({ cards, drawnNumbers = [] }) { // Add drawnNumbers prop with default
+function UserCardsDisplay({ cards, drawnNumbers = [], winningSequence = null }) { // Add winningSequence prop
   if (!cards || cards.length === 0) {
     return <p>No cards to display.</p>; // Or null, depending on desired behavior
   }
@@ -20,6 +21,7 @@ function UserCardsDisplay({ cards, drawnNumbers = [] }) { // Add drawnNumbers pr
           <BingoCard 
             card={card} 
             drawnNumbers={drawnNumbers} // Pass drawnNumbers to each card
+            winningSequence={winningSequence} // Pass winningSequence to each card
           />
         </Col>
       ))}

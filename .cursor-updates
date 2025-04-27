@@ -63,3 +63,13 @@ Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correc
 - Fixed `TransactionCreator` to pass full data (including gmToken) to `onTransactionConfirmed` callback. 
 
 - Fixed `handleTransactionConfirmed` to use `data.txid` instead of stale `raffleState.txId` for storing initial GM token. 
+
+- Updated frontend to display winners and highlight winning sequences on play/admin pages, and updated server API to provide sequence info. 
+
+- Updated winning sequence display/logic to include "FREE" space and fixed PlayPage param handling. 
+
+- Refined winner highlighting logic and updated play page to show full winner details for all viewers. 
+
+- Fixed 404 error on PlayPage by correcting API URL construction in fetchGameState. 
+
+- Fixed 404 error during login by correcting API URL construction in UserLogin component. 

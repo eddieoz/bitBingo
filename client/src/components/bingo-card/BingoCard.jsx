@@ -10,20 +10,24 @@ import './BingoCard.css'; // We'll create this CSS file
 
 /**
  * Renders a single 5x5 Bingo card grid.
- * Expects a card prop and an optional drawnNumbers array.
+ * Expects a card prop, an optional drawnNumbers array, and an optional winningSequence array.
  * { 
  *   card: { cardId, lineIndex, grid: { B, I, N, G, O } },
- *   drawnNumbers: number[]
+ *   drawnNumbers?: number[],
+ *   winningSequence?: (number | string)[] | null
  * }
  */
-function BingoCard({ card, drawnNumbers = [] }) {
+function BingoCard({ card, drawnNumbers = [], winningSequence = null }) {
   if (!card || !card.grid) {
     return <p>Invalid card data</p>;
   }
 
   const columns = ['B', 'I', 'N', 'G', 'O'];
-  // Create a Set for efficient lookup of drawn numbers
   const drawnSet = new Set(drawnNumbers);
+  const winningSet = winningSequence 
+    ? new Set(winningSequence.filter(item => typeof item === 'number')) 
+    : null;
+  const winningSequenceIncludesFree = winningSequence ? winningSequence.includes('FREE') : false;
 
   return (
     <Card className="mb-3 bingo-card-wrapper">
@@ -41,18 +45,23 @@ function BingoCard({ card, drawnNumbers = [] }) {
                 {columns.map(col => {
                   const number = card.grid[col][rowIndex];
                   const isFreeSpace = col === 'N' && rowIndex === 2;
-                  // Check if the number is drawn
-                  const isMarked = !isFreeSpace && drawnSet.has(number);
+                  const isMarked = isFreeSpace || drawnSet.has(number);
                   
-                  // Combine CSS classes
-                  let cellClass = '';
-                  if (isFreeSpace) cellClass = 'free-space';
-                  if (isMarked) cellClass += ' marked'; // Add marked class
+                  // Determine if this specific cell is part of the win
+                  const isWinningCell = 
+                    (isFreeSpace && winningSequenceIncludesFree) || 
+                    (!isFreeSpace && winningSet && winningSet.has(number));
+                  
+                  // Build classes
+                  let cellClasses = [];
+                  if (isFreeSpace) cellClasses.push('free-space');
+                  if (isMarked) cellClasses.push('marked');
+                  if (isWinningCell) cellClasses.push('winning-number');
 
                   return (
                     <td 
                       key={`${col}-${rowIndex}`} 
-                      className={cellClass.trim()} // Apply combined classes
+                      className={cellClasses.join(' ')}
                     >
                       {isFreeSpace ? 'FREE' : number}
                     </td>

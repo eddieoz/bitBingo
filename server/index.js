@@ -252,19 +252,21 @@ app.post('/api/draw/:txid', (req, res) => {
   console.log(`[Draw] Successfully drawn number ${drawnNumber} for game ${txid} (using derivation index ${index + attempts - 1}). Next index: ${gameState.nextDerivationIndex}`);
 
   // --- Check for Winner(s) after draw ---
-  let currentWinners = [];
+  let currentWinnersData = []; // Changed from currentWinners = []
   if (gameState.drawnNumbers.length >= 5) { // Minimum numbers needed for a potential win
       gameState.cards.forEach(card => {
-          if (utils.checkWinCondition(card.grid, gameState.drawnNumbers)) {
-              currentWinners.push(card.username);
+          const winningSequence = utils.checkWinCondition(card.grid, gameState.drawnNumbers);
+          if (winningSequence) { // checkWinCondition now returns sequence or null
+              currentWinnersData.push({ username: card.username, sequence: winningSequence });
           }
       });
   }
 
-  if (currentWinners.length > 0) {
+  if (currentWinnersData.length > 0) {
       gameState.isOver = true;
-      gameState.winners = currentWinners; // Set winners for this draw
-      console.log(`[Draw] Game ${txid} finished! Winners: ${currentWinners.join(', ')}`);
+      gameState.winners = currentWinnersData; // Store the array of {username, sequence} objects
+      const winnerNames = currentWinnersData.map(w => w.username);
+      console.log(`[Draw] Game ${txid} finished! Winners: ${winnerNames.join(', ')}`);
   }
   // --- End Winner Check ---
 
@@ -274,7 +276,7 @@ app.post('/api/draw/:txid', (req, res) => {
     totalDrawn: gameState.drawnNumbers.length,
     nextDerivationIndex: gameState.nextDerivationIndex,
     isOver: gameState.isOver,
-    winners: gameState.winners
+    winners: gameState.winners // This now includes the sequences
   };
 
   res.status(200).json(responsePayload);

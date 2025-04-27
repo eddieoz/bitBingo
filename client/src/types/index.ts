@@ -22,11 +22,21 @@ export interface GameStateStat {
   count: number;
 }
 
+// Define the structure for a winner object
+export interface WinnerInfo {
+  username: string;
+  sequence: (number | string)[]; // Allow numbers or the string "FREE"
+}
+
 export interface GameState {
   drawnNumbers: number[];
   drawIndex: number;
-  stats?: GameStateStat[] | null; // Optional stats for GM
-  statsError?: string; // Optional error message if stats failed
+  status?: string; // Added status back, was present in API response
+  drawSequenceLength?: number; // Added from API response
+  lastDrawTime?: number | null; // Added from API response
+  isOver: boolean; // isOver is returned by the API
+  winners: WinnerInfo[]; // Changed from string[] and removed separate winnerNickname/winningSequence
+  statistics?: string; // Added from API response
 }
 
 // Structure for the logged-in user session on the PlayPage
