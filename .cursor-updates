@@ -81,3 +81,5 @@ Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correc
 Fix: Retrieve existing game state correctly in /api/check-transaction else block. 
 
 Fix: Correct CSV header handling and update verification docs. 
+
+Updated .gitignore to correctly ignore the client/.next directory. 

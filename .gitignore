@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 node_modules
+/server/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -20,20 +21,14 @@ node_modules
 # next.js
 /.next/
 /out/
-.next/cache/
-.next/types/
-.next/static/
-.next/trace
-.next/build-manifest.json
-.next/app-build-manifest.json
-.next/react-loadable-manifest.json
-.next/package.json
-.next/server/
-.next/webpack/
+client/.next/
 
 # production
 /build
 /dist
+
+# uploads
+/server/uploads/
 
 # misc
 .DS_Store
@@ -42,6 +37,7 @@ node_modules
 *.swp
 *.swo
 *~
+core
 
 # debug
 npm-debug.log*
