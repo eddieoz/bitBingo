@@ -63,7 +63,9 @@ function generateBingoCard(publicKey) {
     throw new Error('Invalid publicKey provided for card generation.');
   }
 
-  const cardId = `card-${publicKey.toString('hex').slice(-8)}`; // Use last 8 hex digits as a simple ID
+  const publicKeyHex = publicKey.toString('hex'); // Get hex string representation
+  console.log(`[DEBUG] generateBingoCard: publicKeyHex = ${publicKeyHex}`);
+  const cardId = `card-${publicKeyHex.slice(-8)}`; // Use last 8 hex digits as a simple ID
   const grid = { B: [], I: [], N: [], G: [], O: [] };
   const ranges = {
     B: { min: 1, max: 15, size: 15 },
@@ -73,7 +75,8 @@ function generateBingoCard(publicKey) {
     O: { min: 61, max: 75, size: 15 },
   };
 
-  let hash = crypto.createHash('sha256').update(publicKey).digest();
+  // Hash the HEX STRING representation of the public key
+  let hash = crypto.createHash('sha256').update(publicKeyHex).digest();
   let hashOffset = 0;
 
   function getNextHashInt(byteLength = 2) {
@@ -123,7 +126,7 @@ function generateBingoCard(publicKey) {
     }
   }
 
-  console.log(`Generated card grid for pubKey ending in ...${publicKey.toString('hex').slice(-8)}`);
+  console.log(`Generated card grid for pubKey ending in ...${publicKeyHex.slice(-8)}`);
   return { cardId, grid };
 }
 
@@ -140,9 +143,15 @@ function hashPublicKeyToNumber(publicKey) {
   }
 
   try {
-    const hash = crypto.createHash('sha256').update(publicKey).digest();
-    // Take the last 4 bytes (8 hex digits) of the hash
-    const last4Bytes = hash.slice(-4);
+    // No SHA256 hash needed here anymore
+    // const hash = crypto.createHash('sha256').update(publicKey).digest();
+
+    // Take the last 4 bytes (8 hex digits) of the RAW public key buffer
+    if (publicKey.length < 4) {
+        // This should not happen with standard secp256k1 keys (33 or 65 bytes)
+        throw new Error('Public key buffer is too short.');
+    }
+    const last4Bytes = publicKey.slice(-4);
     // Read as an unsigned 32-bit integer (Big Endian)
     const decimalValue = last4Bytes.readUInt32BE(0);
 
@@ -224,11 +233,14 @@ async function getParticipantsFromOpReturn(opReturnHex) {
   try {
     const ipfsResponse = await axios.get(ipfsUrl, { responseType: 'text' });
     const csvData = ipfsResponse.data;
-    let participants = await csvtojson({ headers: ['name'], noheader: true }).fromString(csvData);
+    let participants = await csvtojson({ 
+        output: "json"
+    }).fromString(csvData);
      participants = participants.map((p, i) => ({
        ...p,
        ticket: (i + 1).toString() // Add 1-based ticket number
      }));
+    console.log(`[Utils] Successfully parsed ${participants.length} participants after handling header.`);
     return participants;
   } catch (ipfsError) {
     console.error(`[Utils] Error fetching or parsing CSV from IPFS (${ipfsUrl}):`, ipfsError.response?.data || ipfsError.message);
@@ -254,13 +266,16 @@ function generateAllCards(participants, blockHash) {
     const lineIndex = index; // Use 0-based index for derivation
     const derivedPubKeyBuffer = derivePublicKey(seedBase, lineIndex);
     const card = generateBingoCard(derivedPubKeyBuffer);
-    return {
-      // Generate a cardId (e.g., from hash of pubkey, consistent with /api/cards)
-      cardId: crypto.createHash('sha256').update(derivedPubKeyBuffer).digest('hex').slice(0, 16),
-      lineIndex: lineIndex,
-      username: participant.name, // Use name from parsed CSV
-      grid: card.grid
+    const finalCardObject = { // Explicitly create the object
+        cardId: card.cardId,
+        lineIndex: lineIndex,
+        username: participant.name, // Use name from parsed CSV
+        grid: card.grid
     };
+    // --- ADDING DEBUG LOG --- 
+    console.log(`[DEBUG] generateAllCards: Storing Card for index ${index} (${participant.name}) with cardId: ${finalCardObject.cardId}`);
+    // --- END DEBUG LOG ---
+    return finalCardObject; // Return the created object
   });
   console.log(`[Utils] Generated ${allCards.length} cards for blockHash ...${blockHash.slice(-8)}`);
   return allCards;

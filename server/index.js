@@ -133,16 +133,18 @@ app.post('/api/check-transaction', async (req, res) => {
         
     } else {
         console.log(`[Check TX] Game state for ${txid} already exists.`);
+        const existingGameState = gameStates.get(txid); // Retrieve the existing state
         // Optionally update participants if re-checking? For now, assume immutable after init.
         // gameState.participants = participants; // If you want to allow updates
         // gameState.blockHash = blockHash; // Should be the same, but can update
-        
-        // --- If game already existed, don't send token --- 
-        res.status(200).json({ 
+
+        // --- If game already existed, don't send token ---
+        res.status(200).json({
             message: 'Transaction confirmed and game state verified.', // Slightly different message
             txid: txid,
-            blockHash: blockHash,
-            participantCount: gameState.participants.length // Use count from existing state
+            blockHash: blockHash, // Use the blockHash fetched in this request context
+            // Use the retrieved existingGameState here
+            participantCount: existingGameState ? existingGameState.participants.length : 0 // Add a check in case it's somehow null/undefined
         });
     }
 

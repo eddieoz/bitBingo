@@ -77,3 +77,7 @@ Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correc
 - Cleaned up unused code: deleted WinnerDisplay.jsx and old PlayPage.jsx, removed unused functions from TransactionCreator.jsx. 
 
 - Reverted PlayPage params handling to use `React.use()` with type assertion to fix runtime warning. 
+
+Fix: Retrieve existing game state correctly in /api/check-transaction else block. 
+
+Fix: Correct CSV header handling and update verification docs. 
