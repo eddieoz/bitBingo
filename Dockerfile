@@ -1,37 +1,29 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18-alpine
+# Use an official Node.js v20 runtime as a parent image
+FROM node:20-alpine
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy root package.json and package-lock.json
-COPY package.json package-lock.json* ./
+# Install pnpm
+RUN npm install -g pnpm
 
-# Install root dependencies
-RUN npm install
+# Copy root package manifest and lockfile
+COPY package.json pnpm-lock.yaml ./
 
-# Copy server files
-COPY server/ ./server/
-# Install server dependencies
-WORKDIR /app/server
-RUN npm install
+# Copy client and server package manifests
+# This helps pnpm understand the workspace structure implicitly
+COPY client/package.json ./client/
+COPY server/package.json ./server/
 
-# Copy client files
-WORKDIR /app
-COPY client/ ./client/
-# Install client dependencies
-WORKDIR /app/client
-RUN npm install
-
-# Return to the root directory
-WORKDIR /app
+# Install all dependencies (root, client, server) using pnpm
+RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the application code
 COPY . .
 
-# Make port 5000 available (assuming server runs on 5000, adjust if needed)
-# Make port 3000 available (client runs on 3000)
+# Make port 5000 available (server)
+# Make port 3000 available (client)
 EXPOSE 5000 3000
 
 # Define the command to run the app using the start script from package.json
-CMD [ "npm", "start" ] 
+CMD [ "pnpm", "start" ] 

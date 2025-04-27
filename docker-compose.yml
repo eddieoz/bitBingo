@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  bitBingo:
+  bitbingo:
     build: .
     container_name: bitBingo_app
     ports:
@@ -10,14 +10,14 @@ services:
       - "5000:5000" # Server port
       - "3000:3000" # Client port
     volumes:
-      # Mount the code for development (optional, remove for production)
+      # Mount the code for development
       # Exclude node_modules to use the ones installed in the container
       - .:/app
       - /app/node_modules
-      - /app/client/node_modules
-      - /app/server/node_modules
+#      - /app/client/node_modules # Not needed with pnpm workspace structure
+#      - /app/server/node_modules # Not needed with pnpm workspace structure
     environment:
       # Add any necessary environment variables here
       # Example: NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true # Often needed for hot-reloading within Docker
-    command: npm start
+    command: pnpm start

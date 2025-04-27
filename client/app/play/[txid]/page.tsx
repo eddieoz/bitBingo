@@ -104,8 +104,8 @@ export default function PlayPage({ params }: PlayPageProps) {
           <hr />
           {gameState.winners.map((winner, index) => (
             <div key={index} className="mb-2 text-center">
-              <p className="mb-0 lead"><strong>{winner.username}</strong></p>
-              <small className="text-muted">Sequence: {winner.sequence.join(', ' )}</small>
+              <p className="mb-0 lead"><strong>{winner.username}</strong> (Card ID: {winner.cardId})</p>
+              <small className="text-muted">Sequence: {winner.sequence.join(', ')}</small>
             </div>
           ))}
         </Alert>

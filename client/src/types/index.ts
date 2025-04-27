@@ -26,6 +26,7 @@ export interface GameStateStat {
 export interface WinnerInfo {
   username: string;
   sequence: (number | string)[]; // Allow numbers or the string "FREE"
+  cardId: string; // Add the card ID for the winning card
 }
 
 export interface GameState {

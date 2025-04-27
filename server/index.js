@@ -254,12 +254,12 @@ app.post('/api/draw/:txid', (req, res) => {
   console.log(`[Draw] Successfully drawn number ${drawnNumber} for game ${txid} (using derivation index ${index + attempts - 1}). Next index: ${gameState.nextDerivationIndex}`);
 
   // --- Check for Winner(s) after draw ---
-  let currentWinnersData = []; // Changed from currentWinners = []
+  let currentWinnersData = [];
   if (gameState.drawnNumbers.length >= 5) { // Minimum numbers needed for a potential win
       gameState.cards.forEach(card => {
           const winningSequence = utils.checkWinCondition(card.grid, gameState.drawnNumbers);
           if (winningSequence) { // checkWinCondition now returns sequence or null
-              currentWinnersData.push({ username: card.username, sequence: winningSequence });
+              currentWinnersData.push({ username: card.username, sequence: winningSequence, cardId: card.cardId });
           }
       });
   }

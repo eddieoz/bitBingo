@@ -427,8 +427,8 @@ export default function AdminHomePage() { // Renamed back to default export
                                   <h4 className="alert-heading">Game Over! Winner{winners.length > 1 ? 's' : ''}:</h4>
                                   {winners.map((winner, index) => (
                                     <div key={index} className="mb-2">
-                                      <p className="mb-0"><strong>{winner.username}</strong></p>
-                                      <small>Sequence: {winner.sequence.join(', ' )}</small>
+                                      <p className="mb-0"><strong>{winner.username}</strong> (Card ID: {winner.cardId})</p>
+                                      <small>Sequence: {winner.sequence.join(', ')}</small>
                                     </div>
                                   ))}
                               </Alert>
