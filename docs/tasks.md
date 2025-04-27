@@ -43,17 +43,18 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
         - [x] Compare drawn numbers against each card to find win progress. (Uses `utils.calculateMaxMarkedInLine`)
         - [x] Determine the top 3 closest-to-win states and player counts. Return this data. (Calculates groups by *max marks in line*, returns formatted string)
 - [x] **Real-time (Polling):**
-    - [x] **Client (Player & GM):** Periodically poll the `/api/game-state/{txid}` endpoint (e.g., every 1-2 seconds) to get the latest drawn numbers (and stats for GM). (Implemented in `PlayPage.tsx` using TanStack Query)
-- [x] **Frontend (Game Master UI):**
-    - [x] Identify the GM client-side. (Implemented via localStorage token check in `PlayPage.tsx`)
-    - [x] Display a "Draw Number" button only if identified as GM for the current `{txid}`. (Implemented via conditional rendering in `PlayPage.tsx`)
-    - [x] Button click handler calls `/api/draw/{txid}`. (Implemented in `PlayPage.tsx`'s `handleDrawNumber`)
-    - [x] Display a statistics box showing the top 3 closest-to-win states and player counts, updated via polling `/api/game-state/{txid}`. (Implemented via polling and state update in `PlayPage.tsx`, displays stats based on max marks per line)
-- [x] **Frontend (Player UI):**
-    - [x] Receive updated drawn number list via polling `/api/game-state/{txid}`. (Implemented via polling in `PlayPage.tsx`)
-    - [x] Update React state with the list/sequence of drawn numbers. (Implemented in `PlayPage.tsx` via TanStack Query)
-    - [x] **Display Sequence:** Show the drawn numbers in order (e.g., "B:12, I:25, N:40, ...") at the top of the page. (Implemented in `PlayPage.tsx`)
-    - [x] Pass the list of drawn numbers down to `BingoCard` component(s). (Implemented in `PlayPage.tsx` -> `UserCardsDisplay.jsx`)
+    - [x] **Client (Player):** Periodically poll the `/api/game-state/{txid}` endpoint (e.g., every 1-2 seconds) from `client/app/play/[txid]/page.tsx` to get the latest drawn numbers. (Implemented in `PlayPage.tsx` using TanStack Query - path needs verification)
+    - [x] **Client (GM):** Periodically poll the `/api/game-state/{txid}` endpoint from `client/app/page.tsx` (when managing an active game) to get the latest drawn numbers and stats.
+- [x] **Frontend (Game Master UI - `client/app/page.tsx`):**
+    - [x] Identify the GM client-side (e.g., via token check after game init/load).
+    - [x] Display a "Draw Number" button only if identified as GM for the current/loaded `{txid}`. (Check implementation location)
+    - [x] Button click handler calls `/api/draw/{txid}`. (Check implementation location)
+    - [x] Display a statistics box showing the top 3 closest-to-win states and player counts, updated via polling `/api/game-state/{txid}`. (Check implementation location)
+- [x] **Frontend (Player UI - `client/app/play/[txid]/page.tsx`):**
+    - [x] Receive updated drawn number list via polling `/api/game-state/{txid}`. (Implemented via polling - path needs verification)
+    - [x] Update React state with the list/sequence of drawn numbers. (Implemented - path needs verification)
+    - [x] **Display Sequence:** Show the drawn numbers in order (e.g., "B:12, I:25, N:40, ...") at the top of the page. (Implemented - path needs verification)
+    - [x] Pass the list of drawn numbers down to `BingoCard` component(s) if they are rendered here (or fetch separately if cards aren't shown on player page). *(Self-correction: Cards ARE shown on player page)*. (Implemented in `PlayPage.tsx` -> `UserCardsDisplay.jsx` - paths need verification)
     - [x] Modify `BingoCard` to visually mark numbers present in the drawn numbers list. (Implemented in `BingoCard.jsx`)
 
 ### 4. Real-Time Card Marking & Win Detection
@@ -128,7 +129,7 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
 
 **C. Frontend Unit/Integration Tests (`client/` - React Testing Library)**
 
-*   **`UserLogin` Component:**
+*   **`UserLogin` Component (If used on Player Page `client/app/play/[txid]/page.tsx`):** *(Adjust if login happens elsewhere)*
     *   [x] **Story: Render:** Given `txid`, When rendered, Then displays Nickname input and Login button.
     *   [x] **Story: Successful Login:** Given user input, When Login clicked and API succeeds, Then `onLoginSuccess` is called with session data.
     *   [x] **Story: Failed Login:** Given user input, When Login clicked and API fails, Then `onLoginError` is called with error message.
@@ -138,49 +139,66 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
     *   [x] **Story: Mark Drawn Numbers:** Given `grid` and `drawnNumbers`, When rendered, Then marks numbers found in `drawnNumbers`.
     *   [x] **Story: Mark Free Space:** Given `grid`, When rendered, Then the free space (N[2]) is always marked.
     *   [x] **Story: Highlight Winning Sequence:** Given `winningSequence`, When rendered, Then highlights numbers in that sequence.
-*   **`UserCardsDisplay` Component:**
+*   **`UserCardsDisplay` Component (Used on Player Page `client/app/play/[txid]/page.tsx`):**
     *   [x] **Story: Render Multiple Cards:** Given `cards` array, When rendered, Then renders the correct number of `BingoCard` components.
     *   [x] **Story: Prop Drilling:** Given props (`cards`, `drawnNumbers`, `winningSequence`), When rendered, Then passes correct props down to `BingoCard` instances.
+*   **Admin Page Component (`client/app/page.tsx`):**
+    *   [ ] **Story: Game Mode Selection:** Test rendering and state changes for game mode radio buttons/selector. *(Blocked - async issues in tests)*
+    *   [ ] **Story: Game Init Call:** Test that `/api/check-transaction` is called with the correct `gameMode`. *(Blocked - async issues in tests)*
+    *   [ ] **Story: Draw Button:** Test visibility and click handler based on GM status and game state. *(Blocked - async issues in tests)*
+    *   [ ] **Story: Statistics Display:** Test correct rendering of stats based on fetched game state. *(Blocked - async issues in tests)*
+    *   [ ] **Story: Partial Win Controls:** Test visibility and functionality of "Continue"/"End Game" buttons based on game state (`partialWinOccurred`). *(Blocked - async issues in tests)*
+*   **Player Page Component (`client/app/play/[txid]/page.tsx`):**
+    *   [ ] **Story: Drawn Numbers Display:** Test correct display of drawn numbers sequence.
+    *   [ ] **Story: Winner Display:** Test correct display of partial/full winners based on fetched game state and mode.
+    *   [ ] **Story: Card Display:** Test rendering of `UserCardsDisplay` with correct props.
 
-**D. Frontend E2E Tests (`client/app/play/[txid]/page.tsx` - Cypress/Playwright)**
+**D. Frontend E2E Tests (Cypress/Playwright)**
 
-*   [ ] **Scenario: Player Full Flow (Happy Path):**
+*   [ ] **Scenario: Player Full Flow (Happy Path - `client/app/play/[txid]/page.tsx`):**
     *   Given a valid game TXID exists on the backend
     *   When a user navigates to the play page (`/play/[txid]`)
-    *   And enters their correct nickname
-    *   And clicks Login
+    *   And enters their correct nickname (if login is required here)
     *   Then their bingo cards are displayed
     *   And the "Drawn Numbers" section updates periodically
     *   When the game ends and they are a winner
-    *   Then the winner banner is shown
-    *   And their winning sequence is highlighted on their card
-*   [ ] **Scenario: Player Login Failure:**
+    *   Then the winner banner is shown (reflecting partial/full win status correctly)
+    *   And their winning sequence (if applicable) is highlighted on their card
+*   [ ] **Scenario: Player Login Failure (`client/app/play/[txid]/page.tsx` - if applicable):**
     *   Given a valid game TXID
     *   When a user navigates to the play page
     *   And enters an incorrect/non-existent nickname
     *   And clicks Login
     *   Then an error message is displayed below the form
     *   And the cards are not shown
-*   [ ] **Scenario: Game Master Full Flow:**
-    *   Given a valid game TXID exists and the user has the GM token (e.g., set in localStorage)
-    *   When the GM navigates to the play page
-    *   And logs in with any nickname (or auto-identifies as GM)
-    *   Then their cards are displayed
-    *   And the "Draw Number" button is visible
+*   [ ] **Scenario: Game Master Full Flow (`client/app/page.tsx`):**
+    *   Given the GM navigates to the admin page (`/`)
+    *   And uploads a participant file
+    *   And selects a Game Mode (e.g., "Partial & Full Card")
+    *   And submits to initialize the game (gets TXID)
+    *   And loads the game state using the TXID
+    *   Then the "Draw Number" button is visible
     *   And the Statistics box is visible
     *   When the GM clicks "Draw Number"
-    *   Then a new number appears in the "Drawn Numbers" list
+    *   Then a new number appears in the "Drawn Numbers" list (on GM page)
     *   And the Statistics box updates
-    *   When the game ends (triggered by a draw)
-    *   Then the Winner Announcement banner is displayed
+    *   *(Add steps for Partial Win scenario if mode requires)*
+    *   When a partial win occurs
+    *   Then the partial winners are displayed
+    *   And the "Draw Number" button is hidden
+    *   And "Continue"/"End Game" buttons appear
+    *   When the GM clicks "Continue"
+    *   Then the "Draw Number" button reappears
+    *   When the GM draws numbers until a full card win
+    *   Then the Full Card Winner Announcement banner is displayed
     *   And the "Draw Number" button might be disabled (or hidden)
-*   [ ] **Scenario: Spectator View:**
+*   [ ] **Scenario: Spectator View (`client/app/play/[txid]/page.tsx`):**
     *   Given a valid game TXID
-    *   When a user navigates to the play page
-    *   And does *not* log in
+    *   When a user navigates to the play page (`/play/[txid]`)
+    *   And does *not* log in (or login is not required for viewing)
     *   Then they can see the "Drawn Numbers" list updating
-    *   And they see the Winner Announcement banner when the game ends
-    *   But they cannot see any cards or GM controls
+    *   And they see the Winner Announcement banner when the game ends (showing partial/full winners correctly)
+    *   But they cannot see any cards or GM controls (unless cards are public, confirm requirements)
 
 ---
 
@@ -194,50 +212,51 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
 # EPIC: Implement Full Card Win Modes (@tests-tdd+bdd.mdc)
 
 ## Description
-Enhance the bingo game to support two distinct winning modes: "Full Card Win Only" and "Partial Win & Full Card Win". This involves modifying the game state, win condition logic, API endpoints, and frontend UI to accommodate mode selection, intermediate game states (partial wins), Game Master controls for continuation, and appropriate display of winners and statistics based on the selected mode.
+Enhance the bingo game to support two distinct winning modes: "Full Card Win Only" and "Partial Win & Full Card". This involves modifying the game state, win condition logic, API endpoints, and frontend UI to accommodate mode selection, intermediate game states (partial wins), Game Master controls for continuation, and appropriate display of winners and statistics based on the selected mode.
 
 ---
 
 ## Roadmap & Stories
 
 ### 7. Backend: Core Logic & State Management (@tests-tdd+bdd.mdc)
-- [ ] **Story: Add Game Mode to State:** Modify `gameStates` in `server/index.js` to include `gameMode: 'partialAndFull' | 'fullCardOnly'`, `partialWinOccurred: boolean` (default false), `partialWinners: string[] | null`, `fullCardWinners: string[] | null`. Adjust existing `winners` field usage if necessary.
-- [ ] **Story: Game Initialization with Mode:** Update `/api/check-transaction` (or relevant init endpoint) to accept a `gameMode` parameter in the request body and store it in the new `gameStates` entry. Add validation for the mode.
-- [ ] **Story: Rename `checkWinCondition`:** Rename existing `checkWinCondition` in `server/utils.js` to `checkLineWin` for clarity. Update all call sites.
-- [ ] **Story: Implement `checkFullCardWin`:** Create a new function `checkFullCardWin(grid, drawnNumbers)` in `server/utils.js` that returns `true` if all 24 numbers on the card are present in `drawnNumbers`, `false` otherwise. Include unit tests.
-- [ ] **Story: Update `/api/draw/:txid` Logic:**
-    - [ ] Refactor endpoint to check `gameState.gameMode`.
-    - [ ] **`fullCardOnly` Mode:** Call only `checkFullCardWin`. On win, set `isOver=true`, record winners in `fullCardWinners`.
-    - [ ] **`partialAndFull` Mode (Before Partial Win):** If `!partialWinOccurred`, call `checkLineWin`. On win, set `partialWinOccurred=true`, record `partialWinners`. **Do not** set `isOver`. Return state indicating partial win occurred.
-    - [ ] **`partialAndFull` Mode (After Partial Win):** If `partialWinOccurred`, call only `checkFullCardWin`. On win, set `isOver=true`, record `fullCardWinners`.
-    - [ ] Ensure draw requests are rejected if `partialWinOccurred` is true *unless* the GM has signaled continuation (e.g., implicitly handled by frontend controls enabling draw button again).
-- [ ] **Story: Implement `/api/end-game/:txid` (POST):** Create a new endpoint requiring GM token. Sets `isOver = true` for the specified game `txid`. Used when GM chooses not to continue after a partial win in `partialAndFull` mode.
-- [ ] **Story: Update `/api/game-state/:txid` Response:** Modify the endpoint to return the new state fields (`gameMode`, `partialWinOccurred`, `partialWinners`, `fullCardWinners`).
-- [ ] **Story: Update GM Statistics:**
-    - [ ] In `partialAndFull` mode, when `partialWinOccurred` is true, modify the statistics calculation to report progress towards a full card win (e.g., count of marked squares per card, grouped by count).
-    - [ ] Ensure the correct statistics (line-based or full-card-based) are returned based on the current game phase.
+- [x] **Story: Add Game Mode to State:** Modify `gameStates` in `server/index.js` to include `gameMode: 'partialAndFull' | 'fullCardOnly'`, `partialWinOccurred: boolean` (default false), `partialWinners: string[] | null`, `fullCardWinners: string[] | null`. Adjust existing `winners` field usage if necessary.
+- [x] **Story: Game Initialization with Mode:** Update `/api/check-transaction` (or relevant init endpoint) to accept a `gameMode` parameter in the request body and store it in the new `gameStates` entry. Add validation for the mode.
+- [x] **Story: Rename `checkWinCondition`:** Rename existing `checkWinCondition` in `server/utils.js` to `checkLineWin` for clarity. Update all call sites.
+- [x] **Story: Implement `checkFullCardWin`:** Create a new function `checkFullCardWin(grid, drawnNumbers)` in `server/utils.js` that returns `true` if all 24 numbers on the card are present in `drawnNumbers`, `false` otherwise. Include unit tests.
+- [x] **Story: Update `/api/draw/:txid` Logic:**
+    - [x] Refactor endpoint to check `gameState.gameMode`.
+    - [x] **`fullCardOnly` Mode:** Call only `checkFullCardWin`. On win, set `isOver=true`, record winners in `fullCardWinners`.
+    - [x] **`partialAndFull` Mode (Before Partial Win):** If `!partialWinOccurred`, call `checkLineWin`. On win, set `partialWinOccurred=true`, record `partialWinners`. **Do not** set `isOver`. Return state indicating partial win occurred.
+    - [x] **`partialAndFull` Mode (After Partial Win):** If `partialWinOccurred`, call only `checkFullCardWin`. On win, set `isOver=true`, record `fullCardWinners`.
+    - [x] Ensure draw requests are rejected if `partialWinOccurred` is true *unless* the GM has signaled continuation (e.g., implicitly handled by frontend controls enabling draw button again).
+- [x] **Story: Implement `/api/end-game/:txid` (POST):** Create a new endpoint requiring GM token. Sets `isOver = true` for the specified game `txid`. Used when GM chooses not to continue after a partial win in `partialAndFull` mode.
+- [x] **Story: Update `/api/game-state/:txid` Response:** Modify the endpoint to return the new state fields (`gameMode`, `partialWinOccurred`, `partialWinners`, `fullCardWinners`).
+- [x] **Story: Update GM Statistics:**
+    - [x] In `partialAndFull` mode, when `partialWinOccurred` is true, modify the statistics calculation to report progress towards a full card win (e.g., count of marked squares per card, grouped by count).
+    - [x] Ensure the correct statistics (line-based or full-card-based) are returned based on the current game phase.
 
-### 8. Frontend: UI & Interaction (@tests-tdd+bdd.mdc)
-- [ ] **Story: Add Game Mode Selection (GM):** In `PlayPage.tsx` (or relevant setup component), add radio buttons/selector for "Partial Win & Full Card" and "Full Card Win Only". This should appear after TXID validation/game init and be enabled only for the GM.
-- [ ] **Story: Pass Game Mode on Init:** Modify the frontend logic that calls `/api/check-transaction` to include the selected `gameMode`.
-- [ ] **Story: Disable Mode Selection:** Disable the game mode selector after the first number has been drawn (fetch state from `/api/game-state`).
-- [ ] **Story: Handle Partial Win State (GM):** In `PlayPage.tsx`, when `gameState.partialWinOccurred` is true and `gameState.isOver` is false:
-    - [ ] Display the `partialWinners`.
-    - [ ] Hide the "Draw Number" button.
-    - [ ] Show "Continue to Full Card" and "End Game Now" buttons.
-- [ ] **Story: Implement GM Continuation/End Controls:**
-    - [ ] "Continue" button: Re-enable the "Draw Number" button. Update internal state if needed.
-    - [ ] "End Game" button: Call the new `/api/end-game/:txid` endpoint. Update UI to reflect game end.
-- [ ] **Story: Update Winner Display (All Users):** Modify the winner announcement logic in `PlayPage.tsx` to:
-    - [ ] Display only `partialWinners` when `partialWinOccurred` is true but `isOver` is false.
-    - [ ] Display `fullCardWinners` in `fullCardOnly` mode when `isOver` is true.
-    - [ ] Display both `partialWinners` and `fullCardWinners` (clearly labeled) in `partialAndFull` mode when `isOver` is true (regardless of whether it ended after partial or full win).
-- [ ] **Story: Display Correct Statistics (GM):** Ensure the statistics box displays the appropriate stats (line-based or full-card-based) fetched from `/api/game-state` depending on the game phase (`partialWinOccurred`).
+### 8. Frontend: UI & Interaction (@tests-tdd+bdd.mdc) - Target: `client/app/page.tsx` (Admin/GM Page)
+- [x] **Story: Add Game Mode Selection (GM):** In `client/app/page.tsx`, when setting up a new game (after file upload, before calling `/api/check-transaction`), add radio buttons/selector for "Partial Win & Full Card" and "Full Card Win Only".
+- [x] **Story: Pass Game Mode on Init:** Modify the frontend logic in `client/app/page.tsx` that calls `/api/check-transaction` to include the selected `gameMode`.
+- [ ] **Story: Disable Mode Selection:** Disable the game mode selector in `client/app/page.tsx` after the first number has been drawn for the loaded game (fetch state from `/api/game-state`).
+- [x] **Story: Handle Partial Win State (GM):** In `client/app/page.tsx`, when managing a game where `gameState.partialWinOccurred` is true and `gameState.isOver` is false (fetched from `/api/game-state/:txid`):
+    - [x] Display the `partialWinners`.
+    - [x] Hide the "Draw Number" button.
+    - [x] Show "Continue to Full Card" and "End Game Now" buttons.
+- [x] **Story: Implement GM Continuation/End Controls:** In `client/app/page.tsx`:
+    - [x] "Continue" button: Re-enable the "Draw Number" button. (May involve internal state change).
+    - [x] "End Game" button: Call the new `/api/end-game/:txid` endpoint. Update UI to reflect game end.
+- [x] **Story: Update Winner Display (GM View):** Modify the winner announcement logic in `client/app/page.tsx` to display winners clearly based on mode and state (`partialWinners`, `fullCardWinners`).
+- [x] **Story: Display Correct Statistics (GM):** Ensure the statistics box in `client/app/page.tsx` displays the appropriate stats (line-based or full-card-based) fetched from `/api/game-state` depending on the game phase (`partialWinOccurred`).
+- [x] **Story: Player Winner Display (client/app/play/[txid]/page.tsx):** Modify the player monitoring page to display winner information fetched from `/api/game-state/:txid`, correctly handling `partialWinOccurred`, `partialWinners`, `fullCardWinners`, and `isOver` based on the `gameMode`.
 
 ### 9. Testing: Expanded Coverage (@tests-tdd+bdd.mdc)
 - [ ] **Story: Backend Unit Tests:** Add tests for `checkFullCardWin`. Update tests for `utils.js` functions affected by renaming/logic changes.
 - [ ] **Story: Backend Integration Tests:** Add/Update tests for `/api/check-transaction`, `/api/draw`, `/api/game-state`, and the new `/api/end-game` to cover both game modes, partial win state transitions, and GM actions. Address existing skipped tests if possible.
-- [ ] **Story: Frontend Unit/Integration Tests:** Update tests for `PlayPage.tsx` and related components to cover mode selection, GM controls visibility/functionality, and updated winner/stats display logic.
+- [ ] **Story: Frontend Unit/Integration Tests:** 
+    - [x] Update tests for `UserLogin` component.
+    - [ ] Update tests for `client/app/page.tsx` and related components to cover mode selection, GM controls visibility/functionality, and updated winner/stats display logic. *(Partially done, blocked by async issues)*
+    - [ ] Update tests for `client/app/play/[txid]/page.tsx` and related components.
 - [ ] **Story: Frontend E2E Tests:** Add new Cypress/Playwright scenarios covering:
     - [ ] Game Master flow for `fullCardOnly` mode.
     - [ ] Game Master flow for `partialAndFull` mode, including the decision point (continue/end) and subsequent states.
