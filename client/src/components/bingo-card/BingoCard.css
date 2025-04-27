@@ -1,33 +1,48 @@
 .bingo-card-wrapper .card-header {
-    font-size: 0.9rem;
-    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: bold;
+    background-color: #f8f9fa; /* Light background for header */
+    padding: 0.5rem 0.75rem;
 }
 
 .bingo-card-table {
-    table-layout: fixed; /* Ensures columns are evenly spaced */
+    table-layout: fixed; /* Ensures columns are even width */
     width: 100%;
     aspect-ratio: 1 / 1; /* Make table roughly square */
-    font-size: clamp(0.8rem, 3vw, 1.2rem); /* Responsive font size */
-    font-weight: bold;
+    font-size: 0.9rem; /* Adjust as needed */
     text-align: center;
     vertical-align: middle;
-    border-collapse: collapse; /* Ensure borders look right */
+    border: 2px solid #dee2e6; /* Slightly thicker border */
+    background-color: #fff;
 }
 
 .bingo-card-table th,
 .bingo-card-table td {
-    border: 1px solid #dee2e6; /* Standard bootstrap border */
-    padding: 0.1rem; /* Minimal padding */
-    height: 20%; /* Equal height rows */
+    border: 1px solid #dee2e6;
     width: 20%; /* Equal width columns */
+    height: 45px; /* Fixed height for cells, adjust as needed */
+    line-height: 45px; /* Center vertically */
+    padding: 0; /* Remove padding to use line-height centering */
 }
 
 .bingo-card-table th {
-    background-color: #f8f9fa; /* Light grey header */
+    background-color: #e9ecef;
+    font-weight: bold;
 }
 
 .bingo-card-table td.free-space {
-    background-color: #e9ecef; /* Slightly darker grey for free space */
-    color: #495057;
-    font-size: clamp(0.7rem, 2.5vw, 1rem);
+    background-color: #f8f9fa !important; /* Light grey, ensure it overrides */
+    color: #6c757d;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+/* Style for marked numbers */
+.marked {
+    background-color: #d1e7dd !important; /* Bootstrap success background lightened */
+    color: #0f5132; /* Bootstrap success text */
+    font-weight: bold;
+    border-radius: 50%; /* Optional: Make it circular */
+    /* Add transition for visual effect if desired */
+    transition: background-color 0.3s ease;
 } 

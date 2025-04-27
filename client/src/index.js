@@ -1,8 +1,8 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+// import ReactDOM from 'react-dom/client'; // Remove ReactDOM
+// import { BrowserRouter } from 'react-router-dom'; // Remove Router
 import './index.css';
-import App from './App.jsx';
+// import App from './App.jsx'; // Remove App import
 import reportWebVitals from './reportWebVitals';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -11,6 +11,8 @@ import { Buffer } from 'buffer';
 window.Buffer = Buffer;
 // --- END ADDITION ---
 
+// --- REMOVED ReactDOM.createRoot and root.render --- 
+/*
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
@@ -19,6 +21,7 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+*/
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

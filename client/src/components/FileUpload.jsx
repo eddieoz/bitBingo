@@ -42,9 +42,12 @@ const FileUpload = ({ onUploadSuccess, isDisabled, apiUrl }) => {
       setMessage(null);
 
       const formData = new FormData();
-      formData.append('csvFile', file);
+      formData.append('participantFile', file);
 
-      const response = await axios.post(apiUrl, formData, {
+      // Construct the correct endpoint using the base apiUrl prop
+      const uploadEndpoint = `${apiUrl}/api/upload-participants`;
+      console.log(`Attempting upload to: ${uploadEndpoint}`);
+      const response = await axios.post(uploadEndpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

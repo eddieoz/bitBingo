@@ -6,7 +6,7 @@
   "scripts": {
     "start": "concurrently \"pnpm run server\" \"pnpm run client\"",
     "server": "cd server && pnpm run dev",
-    "client": "cd client && pnpm start",
+    "client": "cd client && pnpm run dev",
     "install-all": "pnpm install && cd server && pnpm install && cd ../client && pnpm install",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

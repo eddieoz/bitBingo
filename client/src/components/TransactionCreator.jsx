@@ -9,6 +9,7 @@ const TransactionCreator = ({
   isConfirmed,
   fileHash,
   txId,
+  participantFilename,
   blockHash,
   apiUrl,
   onReset
@@ -46,30 +47,25 @@ const TransactionCreator = ({
       setError(null);
       setMessage(null);
 
-      // First submit the transaction ID
-      const response = await axios.post(`${apiUrl}/submit-transaction`, {
-        txId: submittedTxId.trim()
+      // Call /api/check-transaction with txid and filename
+      const response = await axios.post(`${apiUrl}/api/check-transaction`, { 
+        txid: submittedTxId.trim(),
+        participantFilename: participantFilename
       });
       
-      // Immediately check the transaction status
-      const statusResponse = await axios.get(`${apiUrl}/check-transaction`);
+      // The check-transaction endpoint confirms immediately if valid
+      console.log('Check transaction response:', response.data);
+      setMessage(response.data.message || 'Transaction check successful!');
       
-      if (statusResponse.data.confirmed) {
-        setMessage(`Transaction confirmed in block! Confirmations: ${statusResponse.data.confirmations || 1}`);
-        onTransactionConfirmed(statusResponse.data);
-      } else if (statusResponse.data.status === 'pending') {
-        setMessage('Transaction found but not yet confirmed in a block. Try checking again later.');
-      } else if (statusResponse.data.status === 'not_found') {
-        setMessage('Transaction ID not found on the blockchain yet. It may still be propagating.');
-      } else if (statusResponse.data.status === 'invalid') {
-        setError('Transaction does not contain the correct IPFS hash');
-      }
-
-      // Update the parent component with the transaction ID
-      onTransactionCreated(response.data);
+      // Update parent state based on successful check
+      onTransactionCreated({ txId: submittedTxId.trim() });
+      // Call confirmed with block hash if check was successful
+      onTransactionConfirmed({ blockHash: response.data.blockHash }); 
     } catch (err) {
-      console.error('Error submitting transaction ID:', err);
-      setError(err.response?.data?.error || 'Error submitting transaction ID');
+      console.error('Error during transaction check:', err);
+      // Use message from server response if available
+      const errorMsg = err.response?.data?.message || err.message || 'Error checking transaction';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -207,12 +203,12 @@ const TransactionCreator = ({
               value={submittedTxId}
               onChange={(e) => setSubmittedTxId(e.target.value)}
               placeholder="Enter the transaction ID after broadcast"
-              disabled={isDisabled || !fileHash}
+              disabled={isDisabled}
             />
             <Button 
               variant="primary" 
               type="submit"
-              disabled={isDisabled || loading || !fileHash || !submittedTxId.trim()}
+              disabled={isDisabled || loading || !submittedTxId.trim()}
             >
               {loading ? (
                 <>
@@ -233,7 +229,7 @@ const TransactionCreator = ({
       {message && <Alert variant="info">{message}</Alert>}
       
       {renderHexCIDInstructions()}
-      {renderTxIdForm()}
+      {participantFilename && renderTxIdForm()}
       {renderTransactionDetails()}
     </div>
   );

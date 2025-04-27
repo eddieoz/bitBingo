@@ -1,131 +1,152 @@
-const request = require('supertest');
-const axios = require('axios');
-const app = require('./index'); // Assuming your Express app is exported from index.js
-const crypto = require('crypto');
-// Remove explicit vitest imports as globals are now enabled
-// const { vi, describe, test, expect, beforeEach } = require('vitest'); 
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import request from 'supertest';
+import app from './index';
 
-// Mock axios with explicit factory, targeting both default and named exports
-vi.mock('axios', () => {
-  const mockGet = vi.fn();
-  const mockPost = vi.fn();
-  // Add mocks for other methods if needed
-  return {
-    default: {
-      get: mockGet,
-      post: mockPost,
-      // Add other methods used via axios.default.method
-    },
-    get: mockGet, // Ensure named export is the same mock function
-    post: mockPost
-  };
-});
+// Define mocks for the functions we expect utils to export
+const mockFetchTx = vi.fn();
+const mockGetParticipants = vi.fn();
+const mockGenerateCards = vi.fn();
 
-// Mock helper functions (implementation TBD) using Vitest global `vi`
-const mockDerivePublicKey = vi.fn((seedHash, index) => Buffer.from(`pubKey-for-${index}`));
-const mockGenerateBingoCard = vi.fn(publicKey => ({
-  cardId: `card-${publicKey.toString()}`,
-  grid: [[], [], [], [], []] // Placeholder structure
+// Mock the entire ./utils module
+vi.mock('./utils', () => ({
+  // Use the predefined mock functions
+  fetchTxDataAndBlockHash: mockFetchTx,
+  getParticipantsFromOpReturn: mockGetParticipants,
+  generateAllCards: mockGenerateCards,
+  // Mock other exports even if not directly used in these tests, 
+  // in case the endpoint implementation uses them indirectly.
+  derivePublicKey: vi.fn(() => Buffer.from('mockDerivedKey')), 
+  generateBingoCard: vi.fn(() => ({ grid: {} })), // Return minimal valid structure
+  hashPublicKeyToNumber: vi.fn(() => 1), // Return minimal valid number
 }));
 
-// Temporarily assign mocks to global scope IF NEEDED by the tested module.
-// Ideally, the module should import these helpers, allowing proper mocking.
-// If index.js doesn't import them, these globals might still be necessary for now.
-global.derivePublicKey = mockDerivePublicKey;
-global.generateBingoCard = mockGenerateBingoCard;
-
-describe('POST /api/cards', () => {
-  const mockTxId = 'tx123abc';
-  const mockNickname = 'Alice';
-  const mockHexCID = '4a4a4a4a4a4a4a4a'; // Example hex CID
-  const mockStandardCID = Buffer.from(mockHexCID, 'hex').toString(); // Simple conversion example
-  const mockBlockHeight = 800000;
-  const mockPrevBlockHeight = mockBlockHeight - 1;
-  const mockPrevBlockHash = 'prevBlockHash789xyz';
-  const mockIpfsGatewayBase = process.env.PINATA_PUBLIC_GATEWAY_BASE || 'https://ipfs.io/ipfs';
-  const mockIpfsUrl = `${mockIpfsGatewayBase}/${mockStandardCID}`;
-  const mockCsvContent = `Game Title\nname,other_col\nAlice,data1\nBob,data2\nCharlie,data3\nAlice,data4`; // Alice on lines 2 and 5 (1-based data lines)
+describe('GET /api/cards', () => {
+  const testTxId = 'tx-simple-mock-test';
+  const testNickname = 'Alice';
+  const mockBlockHash = 'mockBlockHashABCDEF123';
+  const mockOpReturnHex = '42697442696e676f4349445f53696d706c65'; // "BitBingoCID_Simple" hex
+  const mockParticipants = [
+      { name: 'Alice', ticket: '1' }, 
+      { name: 'Bob', ticket: '2' },
+      { name: 'Alice', ticket: '3' },
+  ];
+  const mockAllCards = [
+      { cardId: 'cardA1', lineIndex: 0, username: 'Alice', grid: {}}, 
+      { cardId: 'cardB1', lineIndex: 1, username: 'Bob', grid: {}}, 
+      { cardId: 'cardA2', lineIndex: 2, username: 'Alice', grid: {}}
+  ];
+  const expectedAliceCards = [mockAllCards[0], mockAllCards[2]]; // Filtered cards
 
   beforeEach(() => {
-    vi.clearAllMocks(); 
+    // Reset mocks clears state like call counts and mock implementations set in tests
+    vi.resetAllMocks();
+    // Cannot reset gameSessionCache as it's internal to index.js
   });
 
-  test('(Happy Path) should generate cards for a valid nickname and confirmed txId', async () => {
-    // --- GIVEN ---
-    // Now use the mocked axios.get directly
-    // Mock BlockCypher TX response
-    axios.get.mockResolvedValueOnce({
-      data: {
-        hash: mockTxId,
-        block_height: mockBlockHeight,
-        confirmed: new Date().toISOString(),
-        outputs: [
-          { script_type: 'pubkeyhash', addresses: ['addr1'], value: 10000 },
-          { script_type: 'null-data', data_hex: mockHexCID, value: 0 }
-        ]
-      }
-    });
+  // No afterEach needed if beforeEach handles full reset
 
-    // Mock BlockCypher Previous Block response
-    axios.get.mockResolvedValueOnce({
-      data: {
-        hash: mockPrevBlockHash,
-        height: mockPrevBlockHeight
-      }
-    });
+  it('should return cards for a valid nickname (cache miss path)', async () => {
+    // --- Given ---
+    // Configure mock implementations for this specific test
+    mockFetchTx.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
+    mockGetParticipants.mockResolvedValue(mockParticipants);
+    mockGenerateCards.mockReturnValue(mockAllCards);
 
-    // Mock IPFS Gateway CSV response
-    axios.get.mockResolvedValueOnce({
-      data: mockCsvContent
-    });
-
-    // --- WHEN ---
+    // --- When ---
     const response = await request(app)
-      .post('/api/cards')
-      .send({ nickname: mockNickname, transactionId: mockTxId });
+      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
 
-    // --- THEN ---
-    // Check axios calls directly
-    expect(axios.get).toHaveBeenCalledWith(expect.stringContaining(`/txs/${mockTxId}`));
-    expect(axios.get).toHaveBeenCalledWith(expect.stringContaining(`/blocks/${mockPrevBlockHeight}`));
-    expect(axios.get).toHaveBeenCalledWith(mockIpfsUrl);
-    
-    // Check derivePublicKey calls (1-based index for lines 2 and 5 -> paths m/.../2 and m/.../5)
-    expect(mockDerivePublicKey).toHaveBeenCalledTimes(2);
-    expect(mockDerivePublicKey).toHaveBeenCalledWith(mockPrevBlockHash, 2);
-    expect(mockDerivePublicKey).toHaveBeenCalledWith(mockPrevBlockHash, 5);
-
-    // Check generateBingoCard calls
-    expect(mockGenerateBingoCard).toHaveBeenCalledTimes(2);
-    expect(mockGenerateBingoCard).toHaveBeenCalledWith(Buffer.from('pubKey-for-2'));
-    expect(mockGenerateBingoCard).toHaveBeenCalledWith(Buffer.from('pubKey-for-5'));
-
-    // Check response
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toHaveProperty('status', 'success');
-    expect(response.body).toHaveProperty('cards');
-    expect(Array.isArray(response.body.cards)).toBe(true);
-    expect(response.body.cards).toHaveLength(2);
-    // Check card structure (adjust based on actual implementation)
-    expect(response.body.cards[0]).toEqual(expect.objectContaining({ 
-        cardId: expect.any(String), 
-        lineIndex: 2, 
-        grid: expect.any(Array) 
-    }));
-     expect(response.body.cards[1]).toEqual(expect.objectContaining({ 
-        cardId: expect.any(String), 
-        lineIndex: 5, 
-        grid: expect.any(Array) 
-    }));
-
+    // --- Then ---
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      status: 'success',
+      cards: expectedAliceCards, // Expect only Alice's cards
+      blockHash: mockBlockHash
+    });
+    // Verify mocks were called correctly
+    expect(mockFetchTx).toHaveBeenCalledWith(testTxId);
+    expect(mockGetParticipants).toHaveBeenCalledWith(mockOpReturnHex);
+    expect(mockGenerateCards).toHaveBeenCalledWith(mockParticipants, mockBlockHash);
   });
 
-  // (Red) TODO: Add tests for Scenario 2 (Nickname Not Found)
-  // (Red) TODO: Add tests for Scenario 3 (Invalid TXID)
-  // (Red) TODO: Add tests for Scenario 4 (Unconfirmed TX)
-  // (Red) TODO: Add tests for Scenario 5 (Missing OP_RETURN)
-  // (Red) TODO: Add test for error fetching previous block
-  // (Red) TODO: Add test for error fetching IPFS file
-  // (Red) TODO: Add test for CSV parsing error
+  it('should return 404 if nickname is not found', async () => {
+    // --- Given ---
+    const nonExistentNickname = 'Charlie';
+    mockFetchTx.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
+    mockGetParticipants.mockResolvedValue(mockParticipants); // Alice & Bob returned
+    mockGenerateCards.mockReturnValue(mockAllCards); // Cards for Alice & Bob generated
+
+    // --- When ---
+    const response = await request(app)
+      .get(`/api/cards?txId=${testTxId}&nickname=${nonExistentNickname}`);
+
+    // --- Then ---
+    expect(response.status).toBe(404);
+    expect(response.body.error).toContain(`Nickname '${nonExistentNickname}' not found`);
+    // Check mocks were still called up to the filtering stage
+    expect(mockFetchTx).toHaveBeenCalledTimes(1);
+    expect(mockGetParticipants).toHaveBeenCalledTimes(1);
+    expect(mockGenerateCards).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return 400 if txId is missing', async () => {
+    const response = await request(app).get(`/api/cards?nickname=${testNickname}`);
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Transaction ID (txId) is required');
+  });
+
+  it('should return 400 if nickname is missing', async () => {
+    const response = await request(app).get(`/api/cards?txId=${testTxId}`);
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Nickname is required');
+  });
+
+  it('should return 404 if fetchTxDataAndBlockHash throws "not found"', async () => {
+    // --- Given ---
+    const error = new Error('Transaction ID not found.');
+    mockFetchTx.mockRejectedValue(error);
+
+    // --- When ---
+    const response = await request(app)
+      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
+
+    // --- Then ---
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBe('Transaction ID not found.');
+    expect(mockGetParticipants).not.toHaveBeenCalled();
+    expect(mockGenerateCards).not.toHaveBeenCalled();
+  });
+  
+  it('should return 400 if fetchTxDataAndBlockHash throws "not confirmed"', async () => {
+    // --- Given ---
+    const error = new Error('Transaction is not yet confirmed in a block.');
+    mockFetchTx.mockRejectedValue(error);
+
+    // --- When ---
+     const response = await request(app)
+      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
+
+    // --- Then ---
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Transaction is not yet confirmed in a block.');
+    expect(mockGetParticipants).not.toHaveBeenCalled();
+    expect(mockGenerateCards).not.toHaveBeenCalled();
+  });
+
+  it('should return 500 if getParticipantsFromOpReturn throws error', async () => {
+    // --- Given ---
+    const error = new Error('Failed to retrieve participant list from IPFS.');
+    mockFetchTx.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex }); // Step 1 succeeds
+    mockGetParticipants.mockRejectedValue(error); // Step 2 fails
+
+    // --- When ---
+    const response = await request(app)
+      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
+
+    // --- Then ---
+    expect(response.status).toBe(500);
+    expect(response.body.error).toContain('Failed to retrieve or process participant list');
+    expect(mockGenerateCards).not.toHaveBeenCalled();
+  });
 
 }); 

@@ -4,3 +4,11 @@ globs:
 alwaysApply: false
 ---
 Usind TDD/BDD and [fix-tests.mdc](mdc:.cursor/rules/fix-tests.mdc) start the development of the provided story.
+
+Always consider the following data for testing:
+- Valid Transaction ID: 6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002
+- Valid CID: bafkreifu3wf3vqz4u7uktze6te2lxb57ekwrg3ngdjl4ktgoag5jfwudgi
+- Valid Block hash: 000000000000000000006f9367863b3fa7ecbc605c8215ef9e92386cbec8255f
+- Valid CSV: [sample-tickets.csv](mdc:sample-tickets.csv)
+
+Work with that valid (real) data for your tests.

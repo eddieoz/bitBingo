@@ -10,19 +10,20 @@ import './BingoCard.css'; // We'll create this CSS file
 
 /**
  * Renders a single 5x5 Bingo card grid.
- * Expects a card prop like: 
+ * Expects a card prop and an optional drawnNumbers array.
  * { 
- *   cardId: string, 
- *   lineIndex: number, 
- *   grid: { B: number[], I: number[], N: (number|null)[], G: number[], O: number[] } 
+ *   card: { cardId, lineIndex, grid: { B, I, N, G, O } },
+ *   drawnNumbers: number[]
  * }
  */
-function BingoCard({ card }) {
+function BingoCard({ card, drawnNumbers = [] }) {
   if (!card || !card.grid) {
     return <p>Invalid card data</p>;
   }
 
   const columns = ['B', 'I', 'N', 'G', 'O'];
+  // Create a Set for efficient lookup of drawn numbers
+  const drawnSet = new Set(drawnNumbers);
 
   return (
     <Card className="mb-3 bingo-card-wrapper">
@@ -40,10 +41,18 @@ function BingoCard({ card }) {
                 {columns.map(col => {
                   const number = card.grid[col][rowIndex];
                   const isFreeSpace = col === 'N' && rowIndex === 2;
+                  // Check if the number is drawn
+                  const isMarked = !isFreeSpace && drawnSet.has(number);
+                  
+                  // Combine CSS classes
+                  let cellClass = '';
+                  if (isFreeSpace) cellClass = 'free-space';
+                  if (isMarked) cellClass += ' marked'; // Add marked class
+
                   return (
                     <td 
                       key={`${col}-${rowIndex}`} 
-                      className={isFreeSpace ? 'free-space' : ''}
+                      className={cellClass.trim()} // Apply combined classes
                     >
                       {isFreeSpace ? 'FREE' : number}
                     </td>
