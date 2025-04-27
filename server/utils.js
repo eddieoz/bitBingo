@@ -344,6 +344,89 @@ function countMarkedNumbers(grid, drawnNumbers) {
     return count;
 }
 
+// --- NEW: Count Marked DRAWN Numbers (Excludes Free Space) ---
+// Added for clearer statistics display
+function countMarkedDrawnNumbers(grid, drawnNumbers) {
+    let count = 0;
+    const drawnSet = new Set(drawnNumbers);
+
+    if (!grid || !drawnSet) return 0; // Basic validation
+
+    for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+        const colLetter = columns[colIndex];
+        const columnData = grid[colLetter];
+        if (!columnData) continue; // Skip if column data is missing
+
+        for (let rowIndex = 0; rowIndex < columnData.length; rowIndex++) {
+            const number = columnData[rowIndex];
+            // ONLY count if the number is in the drawn set (exclude free space implicitly)
+            if (number !== null && drawnSet.has(number)) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+// --- NEW: Calculate Max Marked Squares in Any Line (Row, Col, Diag) ---
+// Includes the FREE space. Useful for showing proximity to winning.
+function calculateMaxMarkedInLine(grid, drawnNumbers) {
+    const drawnSet = new Set(drawnNumbers);
+    const size = 5;
+    let maxMarked = 0;
+
+    if (!grid || !drawnSet) return 0;
+
+    // Helper to check if a cell is marked (handles Free Space)
+    const isMarked = (colLetter, rowIndex) => {
+        if (colLetter === 'N' && rowIndex === 2) return true; // Free Space
+        const number = grid[colLetter]?.[rowIndex];
+        return number !== null && number !== undefined && drawnSet.has(number);
+    };
+
+    // Check rows
+    for (let r = 0; r < size; r++) {
+        let currentMarked = 0;
+        for (let c = 0; c < size; c++) {
+            if (isMarked(columns[c], r)) {
+                currentMarked++;
+            }
+        }
+        maxMarked = Math.max(maxMarked, currentMarked);
+    }
+
+    // Check columns
+    for (let c = 0; c < size; c++) {
+        let currentMarked = 0;
+        for (let r = 0; r < size; r++) {
+            if (isMarked(columns[c], r)) {
+                currentMarked++;
+            }
+        }
+        maxMarked = Math.max(maxMarked, currentMarked);
+    }
+
+    // Check diagonal 1 (Top-left to bottom-right)
+    let diag1Marked = 0;
+    for (let i = 0; i < size; i++) {
+        if (isMarked(columns[i], i)) {
+            diag1Marked++;
+        }
+    }
+    maxMarked = Math.max(maxMarked, diag1Marked);
+
+    // Check diagonal 2 (Top-right to bottom-left)
+    let diag2Marked = 0;
+    for (let i = 0; i < size; i++) {
+        if (isMarked(columns[i], size - 1 - i)) {
+            diag2Marked++;
+        }
+    }
+    maxMarked = Math.max(maxMarked, diag2Marked);
+
+    return maxMarked;
+}
+
 // --- NEW: Check for Win Condition (Corrected for Column-Object Grid) ---
 // Renamed from checkBingo
 function checkWinCondition(grid, drawnNumbers) {
@@ -408,5 +491,7 @@ module.exports = {
   generateAllCards,
   calculateNumbersNeededToWin,
   countMarkedNumbers,
+  countMarkedDrawnNumbers,
+  calculateMaxMarkedInLine,
   checkWinCondition
 }; 

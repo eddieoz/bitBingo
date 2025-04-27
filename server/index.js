@@ -99,6 +99,10 @@ app.post('/api/check-transaction', async (req, res) => {
             uploadedFiles.delete(participantFilename); // Remove from map
         });
 
+        // --- Generate GM Token during initialization --- 
+        const initialGmToken = crypto.randomBytes(16).toString('hex');
+        console.log(`[Check TX] Generated initial GM Token for ${txid}`);
+
         gameStates.set(txid, {
             txid: txid,
             status: 'initialized',
@@ -109,7 +113,7 @@ app.post('/api/check-transaction', async (req, res) => {
             drawnNumbers: [],
             drawSequence: [], // Store the sequence of derived public keys
             nextDerivationIndex: 0, 
-            gmToken: null, // Initialize GM token placeholder
+            gmToken: initialGmToken, // Store the generated GM token
             lastDrawTime: null,
             creationTime: Date.now(),
             isOver: false, // NEW: Track if the game has a winner
@@ -117,19 +121,30 @@ app.post('/api/check-transaction', async (req, res) => {
         });
         console.log(`[Check TX] Game state for ${txid} successfully initialized with ${allCards.length} cards.`);
         
+        // --- Return the newly generated token only on initialization --- 
+        res.status(200).json({ 
+            message: 'Transaction confirmed and game state initialized/verified.',
+            txid: txid,
+            blockHash: blockHash,
+            participantCount: participants.length,
+            gmToken: initialGmToken // Include the new token
+        });
+        return; // Exit here after sending init response
+        
     } else {
         console.log(`[Check TX] Game state for ${txid} already exists.`);
         // Optionally update participants if re-checking? For now, assume immutable after init.
         // gameState.participants = participants; // If you want to allow updates
         // gameState.blockHash = blockHash; // Should be the same, but can update
+        
+        // --- If game already existed, don't send token --- 
+        res.status(200).json({ 
+            message: 'Transaction confirmed and game state verified.', // Slightly different message
+            txid: txid,
+            blockHash: blockHash,
+            participantCount: gameState.participants.length // Use count from existing state
+        });
     }
-
-    res.status(200).json({ 
-        message: 'Transaction confirmed and game state initialized/verified.',
-        txid: txid,
-        blockHash: blockHash,
-        participantCount: participants.length
-    });
 
   } catch (error) {
     console.error(`[Check TX] Error processing transaction ${txid}:`, error.message);
@@ -170,23 +185,17 @@ app.post('/api/draw/:txid', (req, res) => {
   const authHeader = req.headers.authorization;
   const providedToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
   
-  // On first draw, generate and store token if not present
-  if (gameState.nextDerivationIndex === 0 && !gameState.gmToken) {
-      gameState.gmToken = crypto.randomBytes(16).toString('hex');
-      console.log(`[Draw] First draw for ${txid}. Generated GM token.`);
-      // No token check needed for the very first draw
-  } else {
-      // For subsequent draws, token MUST be provided and match
-      if (!providedToken) {
-          console.warn(`[Draw] Missing GM token for game ${txid}`);
-          return res.status(401).json({ message: 'Authorization token required for drawing numbers.'});
-      }
-      if (providedToken !== gameState.gmToken) {
-          console.warn(`[Draw] Invalid GM token provided for game ${txid}`);
-          return res.status(403).json({ message: 'Invalid authorization token.' });
-      }
-      console.log(`[Draw] GM token verified for ${txid}`);
+  // Token MUST always be provided and match the one generated at initialization
+  if (!providedToken) {
+      console.warn(`[Draw] Missing GM token for game ${txid}`);
+      return res.status(401).json({ message: 'Authorization token required for drawing numbers.'});
   }
+  if (providedToken !== gameState.gmToken) {
+      console.warn(`[Draw] Invalid GM token provided for game ${txid}. Expected: ${gameState.gmToken ? gameState.gmToken.substring(0,4)+'...' : 'null'}, Got: ${providedToken ? providedToken.substring(0,4)+'...' : 'null'}`); // Added logging
+      return res.status(403).json({ message: 'Invalid authorization token.' });
+  }
+  console.log(`[Draw] GM token verified for ${txid}`);
+  
   // --- End GM Token Verification ---
 
   // --- Check if game already ended ---
@@ -268,12 +277,6 @@ app.post('/api/draw/:txid', (req, res) => {
     winners: gameState.winners
   };
 
-  // Include the token in the response only for the FIRST successful draw
-  if (gameState.drawnNumbers.length === 1 && gameState.gmToken) {
-      responsePayload.gmToken = gameState.gmToken;
-      console.log(`[Draw] Sending GM token in response for first draw.`);
-  }
-
   res.status(200).json(responsePayload);
 });
 
@@ -284,7 +287,7 @@ app.get('/api/game-state/:txid', async (req, res) => {
   const { gm } = req.query; // Check for ?gm=true query param
   const isGMRequest = gm === 'true';
 
-  console.log(`[State] Request for game ${txid}${isGMRequest ? ' (GM)' : ''}`);
+  // console.log(`[State] Request for game ${txid}${isGMRequest ? ' (GM)' : ''}`);
 
   const gameState = gameStates.get(txid);
 
@@ -293,30 +296,37 @@ app.get('/api/game-state/:txid', async (req, res) => {
     return res.status(404).json({ message: 'Game not found.' });
   }
 
-  // --- Calculate Statistics ---
-  let statistics = { message: "Statistics not available yet." };
+  // --- Calculate Statistics --- 
+  let statistics = "Statistics not available yet."; // Default to string
   if (gameState.cards && gameState.cards.length > 0 && gameState.drawnNumbers.length > 0) {
-      const markedCounts = gameState.cards.map(card => {
-          return utils.countMarkedNumbers(card.grid, gameState.drawnNumbers);
+      // Calculate the max marked in any line for each card
+      const maxInLineCounts = gameState.cards.map(card => {
+          return utils.calculateMaxMarkedInLine(card.grid, gameState.drawnNumbers);
       });
 
-      const countsMap = markedCounts.reduce((acc, count) => {
-          acc[count] = (acc[count] || 0) + 1;
+      // Count how many players have each 'max marked in line' value
+      const countsMap = maxInLineCounts.reduce((acc, count) => {
+          // Only include counts >= 2 (less than 2 isn't very informative)
+          if (count >= 2) { 
+              acc[count] = (acc[count] || 0) + 1;
+          }
           return acc;
       }, {});
 
       const sortedCounts = Object.entries(countsMap)
           .map(([markedNum, playerCount]) => ({ markedNum: parseInt(markedNum, 10), playerCount }))
-          .sort((a, b) => b.markedNum - a.markedNum); // Sort by marked numbers descending
+          .sort((a, b) => b.markedNum - a.markedNum); // Sort by max marked in line descending
 
-      const top3Stats = sortedCounts.slice(0, 3);
+      const topStats = sortedCounts; // Show all relevant groups (>=2 marks in a line)
 
-      if (top3Stats.length > 0) {
-        statistics = top3Stats.map(stat => 
-          `${stat.playerCount} player${stat.playerCount > 1 ? 's' : ''} ${stat.playerCount > 1 ? 'have' : 'has'} ${stat.markedNum} number${stat.markedNum > 1 ? 's' : ''} marked`
+      if (topStats.length > 0) {
+        // Updated formatting to reflect max marks in a line
+        statistics = topStats.map(stat => 
+          `${stat.playerCount} player${stat.playerCount > 1 ? 's' : ''} ${stat.playerCount > 1 ? 'have' : 'has'} a line with ${stat.markedNum} mark${stat.markedNum > 1 ? 's' : ''}`
         ).join('\n');
       } else {
-        statistics = "No players have marked numbers yet.";
+        // Adjust message if no one has at least 2 in a line yet
+        statistics = "No players have 2 or more marks in a line yet."; 
       }
   }
   // --- End Statistics Calculation ---

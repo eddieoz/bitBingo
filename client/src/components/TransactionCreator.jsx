@@ -59,8 +59,8 @@ const TransactionCreator = ({
       
       // Update parent state based on successful check
       onTransactionCreated({ txId: submittedTxId.trim() });
-      // Call confirmed with block hash if check was successful
-      onTransactionConfirmed({ blockHash: response.data.blockHash }); 
+      // Call confirmed with block hash AND gmToken (if present) from the response data
+      onTransactionConfirmed(response.data); 
     } catch (err) {
       console.error('Error during transaction check:', err);
       // Use message from server response if available

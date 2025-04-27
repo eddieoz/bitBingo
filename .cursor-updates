@@ -49,3 +49,17 @@ Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correc
 - Made internal error/message rendering in `TransactionCreator.jsx` robust against non-string values. 
 
 - Made statistics rendering in `GameStateDisplay.jsx` robust against non-string values. 
+
+- Updated game state statistics to show max marks in any line (row/col/diag) instead of total marked drawn numbers. 
+
+- Removed redundant `setGmToken` call in `handleDrawNumber` (admin page) to rely on `useEffect` reading from localStorage. 
+
+- Re-added direct `setGmToken` call in `handleDrawNumber` (admin page) to potentially fix token race condition. 
+
+- Refactored GM token handling: Generate token during backend initialization (`/check-transaction`), verify only in `/draw`, remove frontend handling from draw response. 
+
+- Send new GM token from backend on init; frontend stores it on confirmation. 
+
+- Fixed `TransactionCreator` to pass full data (including gmToken) to `onTransactionConfirmed` callback. 
+
+- Fixed `handleTransactionConfirmed` to use `data.txid` instead of stale `raffleState.txId` for storing initial GM token. 

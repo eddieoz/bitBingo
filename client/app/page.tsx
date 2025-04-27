@@ -187,13 +187,29 @@ export default function AdminHomePage() { // Renamed back to default export
     }));
   };
 
-  const handleTransactionConfirmed = (data: { blockHash: string }) => { // REMOVED gmToken from expected data type
+  const handleTransactionConfirmed = (data: { txid: string, blockHash: string, gmToken?: string }) => { 
      console.log('Transaction confirmed with blockHash:', data.blockHash);
      setRaffleState(prevState => ({
       ...prevState,
       txConfirmed: true,
       blockHash: data.blockHash
+      // Note: txId should already be set by handleTransactionCreated
     }));
+
+    // --- Store the token if received (means new game initialized) --- 
+    // Use data.txid directly, as raffleState.txId might be stale
+    if (data.gmToken && data.txid) { 
+        console.log(`Received initial GM Token from confirmation: ${data.gmToken.substring(0,4)}... Storing for txid ${data.txid}.`);
+        try {
+            const tokens = JSON.parse(localStorage.getItem('gmTokens') || '{}');
+            tokens[data.txid] = data.gmToken; // Use data.txid as key
+            localStorage.setItem('gmTokens', JSON.stringify(tokens));
+            // Also set the state immediately for the first draw
+            setGmToken(data.gmToken); 
+        } catch (e) {
+            console.error("Error storing initial GM token in localStorage:", e);
+        }
+    }
   };
   
   // checkTransactionStatus might not be needed if TransactionCreator handles checks
@@ -244,23 +260,6 @@ export default function AdminHomePage() { // Renamed back to default export
             // Let's fetch it to be sure it reflects the final state
             fetchCurrentGameState(raffleState.txId); 
             stopPolling(); // Ensure polling stops
-        }
-        
-        if (response.data.gmToken && !gmToken) {
-            console.log('Received and storing GM Token from draw response:', response.data.gmToken);
-            // Store in local storage as well
-            const storeToken = (txid: string, token: string) => {
-               try {
-                   const tokens = JSON.parse(localStorage.getItem('gmTokens') || '{}');
-                   tokens[txid] = token;
-                   localStorage.setItem('gmTokens', JSON.stringify(tokens));
-                   console.log(`Stored GM token for ${txid}`);
-               } catch (e) {
-                   console.error("Error storing GM token in localStorage:", e);
-               }
-            };
-            storeToken(raffleState.txId, response.data.gmToken);
-            setGmToken(response.data.gmToken);
         }
         
       } catch (error: any) {
