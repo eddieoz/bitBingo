@@ -68,6 +68,7 @@ export default function AdminHomePage() { // Renamed back to default export
   // === Restore QR code state ===
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null); // State for Data URL
+  const [isPlayLinkCopied, setIsPlayLinkCopied] = useState(false); // State for copy button text
 
   // --- GM Token Check Effect (Run once on mount or when txId changes) --- 
   useEffect(() => {
@@ -357,11 +358,12 @@ export default function AdminHomePage() { // Renamed back to default export
     if (!playerPageUrl) return;
     navigator.clipboard.writeText(playerPageUrl)
       .then(() => {
-        alert('Player link copied to clipboard!'); // Or use a more subtle notification
+        setIsPlayLinkCopied(true);
+        setTimeout(() => setIsPlayLinkCopied(false), 1500); // Reset after 1.5 seconds
       })
       .catch(err => {
         console.error('Failed to copy link: ', err);
-        alert('Failed to copy link.');
+        alert('Failed to copy link.'); // Keep error alert for now
       });
   };
 
@@ -404,7 +406,7 @@ export default function AdminHomePage() { // Renamed back to default export
             </a>
             <ButtonGroup size="sm">
               <Button variant="outline-secondary" onClick={handleCopyLink}>
-                Copy Link
+                {isPlayLinkCopied ? 'Copied!' : 'Copy Link'}
               </Button>
               {/* === Restore QR code button === */}
               <Button variant="outline-info" onClick={handleShowQr}>

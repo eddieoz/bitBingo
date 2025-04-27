@@ -90,3 +90,4 @@ fix: Include cardId in winner data returned by backend API.
 fix: Restore Admin page UI elements (header details, transaction box) by fixing backend upload API and frontend component rendering. 
 
 feat: Improve player link display on Admin page with copy button and QR code modal. 
+feat: Make player link copy button show temporary 'Copied!' text on click. 
