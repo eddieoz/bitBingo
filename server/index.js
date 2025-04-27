@@ -111,7 +111,9 @@ app.post('/api/check-transaction', async (req, res) => {
             nextDerivationIndex: 0, 
             gmToken: null, // Initialize GM token placeholder
             lastDrawTime: null,
-            creationTime: Date.now()
+            creationTime: Date.now(),
+            isOver: false, // NEW: Track if the game has a winner
+            winners: [] // NEW: Store usernames of winners
         });
         console.log(`[Check TX] Game state for ${txid} successfully initialized with ${allCards.length} cards.`);
         
@@ -187,6 +189,17 @@ app.post('/api/draw/:txid', (req, res) => {
   }
   // --- End GM Token Verification ---
 
+  // --- Check if game already ended ---
+  if (gameState.isOver) {
+    console.log(`[Draw] Game ${txid} is already over. Winners: ${gameState.winners.join(', ')}`);
+    return res.status(400).json({
+        message: 'Game is already over.',
+        winners: gameState.winners,
+        drawnNumbers: gameState.drawnNumbers,
+        totalDrawn: gameState.drawnNumbers.length
+    });
+  }
+
   if (gameState.drawnNumbers.length >= 75) {
     console.log(`[Draw] All 75 numbers already drawn for game ${txid}`);
     return res.status(400).json({ message: 'All 75 numbers have been drawn.' });
@@ -229,11 +242,30 @@ app.post('/api/draw/:txid', (req, res) => {
 
   console.log(`[Draw] Successfully drawn number ${drawnNumber} for game ${txid} (using derivation index ${index + attempts - 1}). Next index: ${gameState.nextDerivationIndex}`);
 
+  // --- Check for Winner(s) after draw ---
+  let currentWinners = [];
+  if (gameState.drawnNumbers.length >= 5) { // Minimum numbers needed for a potential win
+      gameState.cards.forEach(card => {
+          if (utils.checkWinCondition(card.grid, gameState.drawnNumbers)) {
+              currentWinners.push(card.username);
+          }
+      });
+  }
+
+  if (currentWinners.length > 0) {
+      gameState.isOver = true;
+      gameState.winners = currentWinners; // Set winners for this draw
+      console.log(`[Draw] Game ${txid} finished! Winners: ${currentWinners.join(', ')}`);
+  }
+  // --- End Winner Check ---
+
   const responsePayload = {
     message: 'Number drawn successfully!',
     drawnNumber: drawnNumber,
     totalDrawn: gameState.drawnNumbers.length,
     nextDerivationIndex: gameState.nextDerivationIndex,
+    isOver: gameState.isOver,
+    winners: gameState.winners
   };
 
   // Include the token in the response only for the FIRST successful draw
@@ -261,80 +293,43 @@ app.get('/api/game-state/:txid', async (req, res) => {
     return res.status(404).json({ message: 'Game not found.' });
   }
 
-  // --- Base Response Body (for both Player and GM) ---
-  const responseBody = {
-    txid: gameState.txid,
-    status: gameState.status,
-    drawnNumbers: gameState.drawnNumbers,
-    lastDrawTime: gameState.lastDrawTime,
-    creationTime: gameState.creationTime,
-    winners: [], // Initialize winners array
-    stats: []    // Initialize stats array
-    // We don't send all cards or baseSeed to regular players
-  };
-
-  // --- GM-Specific Calculations --- 
-  if (isGMRequest) {
-    console.log(`[State] Calculating GM stats for game ${txid}`);
-    try {
-      // Use stored data instead of re-fetching
-      const blockHash = gameState.blockHash;
-      const participants = gameState.participants;
-      const allCards = gameState.cards; // Get all generated cards
-      const drawnNumbers = gameState.drawnNumbers;
-      const drawnSet = new Set(drawnNumbers); // For faster lookups
-
-      if (!blockHash || !participants || participants.length === 0) {
-         console.error(`[State] Missing blockHash or participants in gameState for GM request (TXID: ${txid})`);
-         throw new Error('Game state is missing required data (blockHash or participants) for GM stats.');
-      }
-      
-      console.log(`[State] Using stored blockHash ${blockHash} and ${participants.length} participants.`);
-
-      const winners = [];
-      const markedCountsTally = {}; // { markedCount: numberOfCards }
-
-      allCards.forEach(card => {
-          // 1. Calculate marked numbers for stats
-          const markedCount = utils.countMarkedNumbers(card.grid, drawnNumbers);
-          markedCountsTally[markedCount] = (markedCountsTally[markedCount] || 0) + 1;
-          
-          // 2. Check for Bingo (Winner)
-          if (utils.checkBingo(card.grid, drawnNumbers)) {
-              // Avoid adding duplicates if multiple lines are hit simultaneously by the same card
-              if (!winners.some(w => w.cardId === card.cardId)) {
-                 winners.push({ nickname: card.username, cardId: card.cardId });
-                 console.log(`[State] Bingo detected for ${card.username} (Card ID: ${card.cardId})`);
-              }
-          }
+  // --- Calculate Statistics ---
+  let statistics = { message: "Statistics not available yet." };
+  if (gameState.cards && gameState.cards.length > 0 && gameState.drawnNumbers.length > 0) {
+      const markedCounts = gameState.cards.map(card => {
+          return utils.countMarkedNumbers(card.grid, gameState.drawnNumbers);
       });
 
-      // Format stats: sort by marked count descending, take top 3
-      const statsArray = Object.entries(markedCountsTally)
-            .map(([marked, count]) => ({ marked: parseInt(marked, 10), count }))
-            .sort((a, b) => b.marked - a.marked) // Sort descending by marked count
-            .slice(0, 3); // Take top 3
-            
-      console.log(`[State] Calculated Stats:`, statsArray); 
-      console.log(`[State] Detected Winners:`, winners);
+      const countsMap = markedCounts.reduce((acc, count) => {
+          acc[count] = (acc[count] || 0) + 1;
+          return acc;
+      }, {});
 
-      // Add GM data to response
-      responseBody.stats = statsArray;
-      responseBody.winners = winners;
-      responseBody.participantCount = participants.length;
-      responseBody.baseSeed = gameState.baseSeed; // Send seed to GM
-      responseBody.drawSequence = gameState.drawSequence; // Send sequence to GM
-      responseBody.gmToken = gameState.gmToken; // Send token to GM for reference
+      const sortedCounts = Object.entries(countsMap)
+          .map(([markedNum, playerCount]) => ({ markedNum: parseInt(markedNum, 10), playerCount }))
+          .sort((a, b) => b.markedNum - a.markedNum); // Sort by marked numbers descending
 
-    } catch (error) {
-      console.error(`[State] Error calculating GM stats for game ${txid}:`, error);
-      // Don't crash the request, just indicate stats calculation failed
-      responseBody.gmError = `Failed to calculate GM stats: ${error.message}`;
-    }
+      const top3Stats = sortedCounts.slice(0, 3);
+
+      if (top3Stats.length > 0) {
+        statistics = top3Stats.map(stat => 
+          `${stat.playerCount} player${stat.playerCount > 1 ? 's' : ''} ${stat.playerCount > 1 ? 'have' : 'has'} ${stat.markedNum} number${stat.markedNum > 1 ? 's' : ''} marked`
+        ).join('\n');
+      } else {
+        statistics = "No players have marked numbers yet.";
+      }
   }
-  // --- End GM-Specific Calculations ---
+  // --- End Statistics Calculation ---
 
-  res.status(200).json(responseBody);
+  res.status(200).json({
+    status: gameState.status,
+    drawnNumbers: gameState.drawnNumbers,
+    drawSequenceLength: gameState.drawSequence.length, // Maybe useful for verification?
+    lastDrawTime: gameState.lastDrawTime,
+    isOver: gameState.isOver,
+    winners: gameState.winners,
+    statistics: statistics // Include formatted statistics
+  });
 });
 
 

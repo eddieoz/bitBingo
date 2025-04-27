@@ -22,3 +22,15 @@ Fix: Ensure derivePublicKey returns a Buffer using Buffer.from().
 feat: Implement Story 2 - Card generation and user login flow. 
 
 Refactor: Analyze code and update tasks.md roadmap status. 
+
+Refactored `checkBingo` and `countMarkedNumbers` in `server/utils.js` for correct grid structure and free space handling; renamed `checkBingo` to `checkWinCondition`. 
+
+- Implemented win condition checking in `/api/draw/:txid` which stops the game and records winners.
+- Corrected statistics calculation in `/api/game-state/:txid` to show top 3 player groups by marked numbers. 
+
+- Added state and polling logic to `PlayPage.jsx` for real-time game state updates (drawn numbers, statistics, game over status, winners).
+- Implemented basic GM role detection and controls based on localStorage token. 
+
+- Added loading state (`isLoadingDraw`) to the Draw button in `PlayPage.jsx`. 
+
+- Updated `docs/tasks.md` roadmap to reflect completion of real-time polling, card marking, win detection, statistics calculation, and GM controls. 

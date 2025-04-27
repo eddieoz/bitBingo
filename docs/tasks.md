@@ -18,7 +18,7 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
 - [x] **Frontend:** Modify PlayPage input from Block Number to Transaction ID.
 - [ ] **Backend TDD (`/api/cards`):** (Skipped for now due to test environment issues)
     - [ ] (Red) Write failing integration test for happy path (mocks: BlockCypher, IPFS).
-    - [~] (Green) Implement `/api/cards` logic: fetch TX, get block hash, fetch IPFS CSV, parse, find lines, use current block hash seed, cache results. (Implemented via `/api/check-transaction` init and `/api/game-state/:txid/cards` retrieval, not a dedicated `/api/cards` for initial fetch)
+    - [x] (Green) Implement `/api/cards` logic: fetch TX, get block hash, fetch IPFS CSV, parse, find lines, use current block hash seed, cache results. (Implemented via `/api/check-transaction` for init, and `/api/cards/:txid/:nickname` for retrieval)
     - [x] (Refactor) Extract logic into helper functions, improve error handling. (Logic is in `server/utils.js`)
     - [ ] (R/G/R) Add tests & implementation for edge cases (nickname not found, invalid TX, unconfirmed, no OP_RETURN, IPFS error, CSV error, etc.). (Skipped)
 - [ ] **Backend TDD (`derivePublicKey` helper):** (Skipped for now)
@@ -30,13 +30,13 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
     - [x] (Green) Implement deterministic card generation from public key hash. (Logic exists in `server/utils.js`)
     - [x] (Refactor) Optimize and clarify generation logic.
 - [x] **Frontend:** Create/Update `UserCardsDisplay` component to render the cards received from `/api/cards`. (Exists and used in `PlayPage.jsx`)
-- [x] **Frontend:** Refactor `PlayPage` to use `/api/cards` backend endpoint exclusively. (Uses `/api/check-transaction` and `/api/game-state/:txid/cards`)
+- [x] **Frontend:** Refactor `PlayPage` to use `/api/cards` backend endpoint exclusively. (Uses `/api/cards/:txid/:nickname`)
 - [x] **Documentation:** Update user verification steps for card generation. (Covered by docs/verification.md)
 
 ### 3. Number Drawing (Game Master)
 - [x] **Backend:** Create `/api/draw/{txid}` endpoint. (Exists in `server/index.js`)
     - [x] Verify request comes from the Game Master (user who initiated the game associated with `{txid}`, potentially checked via a client-side token/cookie set during initiation). (Implemented via simple bearer token check in `/api/draw/:txid`)
-- [~] **Backend:** Implement logic within `/api/draw/{txid}`: (Base logic done, uniqueness TODO) -> (Base logic and uniqueness implemented)
+- [x] **Backend:** Implement logic within `/api/draw/{txid}`: (Base logic and uniqueness implemented)
     - [x] Maintain game state **in memory**, keyed by `{txid}` (incl. base derivation seed from block hash, list of drawn numbers, draw index). Retrieve block hash associated with `{txid}` if needed. (Uses `gameStates` Map in `server/index.js`)
     - [x] On draw request:
         - [x] Increment draw index (persistent for the specific `{txid}` game instance in memory). (Uses `nextDerivationIndex`)
@@ -47,26 +47,26 @@ Implement a provably-fair, trustless, and verifiable bingo game using Bitcoin an
         - [ ] **(Optional Optimization):** Pre-calculate the full sequence of 75 numbers on game initialization to avoid repeated derivation checks during draw.
 - [x] **Backend:** Create `/api/game-state/{txid}` endpoint. (Exists in `server/index.js`)
     - [x] Returns the current list/sequence of drawn numbers for the given `{txid}` game. (Implemented)
-    - [ ] **(For GM Stats):** If requested by GM, also calculate and return statistics: (Logic not implemented in GET endpoint)
-        - [ ] Retrieve all generated bingo cards for `{txid}` (using logic similar to `/api/cards`).
-        - [ ] Compare drawn numbers against each card to find win progress.
-        - [ ] Determine the top 3 closest-to-win states (e.g., 1 away, 2 away, 3 away) and the count of players in each state. Return this data.
-- [ ] **Real-time (Polling):**
-    - [ ] **Client (Player & GM):** Periodically poll the `/api/game-state/{txid}` endpoint (e.g., every 1-2 seconds) to get the latest drawn numbers (and stats for GM). (Not implemented in `PlayPage.jsx`)
-- [ ] **Frontend (Game Master UI):**
-    - [ ] Identify the GM client-side (e.g., set a flag/token in local storage when they submit the TXID on the PlayPage). (Not implemented in `PlayPage.jsx`)
-    - [ ] Display a "Draw Number" button only if identified as GM for the current `{txid}`. (`DrawNumberButton.jsx` exists, but conditional rendering not implemented in `PlayPage.jsx`)
-    - [ ] Button click handler calls `/api/draw/{txid}`. (Assumed for button component, not verified in page)
-    - [ ] Display a statistics box showing the top 3 closest-to-win states and player counts, updated via polling `/api/game-state/{txid}`. (`GameStateDisplay.jsx` exists, but polling and stats display not implemented in `PlayPage.jsx`)
-- [ ] **Frontend (Player UI):**
-    - [ ] Receive updated drawn number list via polling `/api/game-state/{txid}`. (Not implemented in `PlayPage.jsx`)
-    - [ ] Update React state with the list/sequence of drawn numbers. (Not implemented in `PlayPage.jsx`)
-    - [ ] **Display Sequence:** Show the drawn numbers in order (e.g., "B:12, I:25, N:40, ...") at the top of the page. (Not implemented in `PlayPage.jsx`)
-    - [ ] Pass the list of drawn numbers down to `BingoCard` component(s). (Not implemented in `PlayPage.jsx`)
-    - [ ] Modify `BingoCard` to visually mark numbers present in the drawn numbers list. (Component needs modification and props)
+    - [x] **(For GM Stats):** If requested by GM, also calculate and return statistics: (Statistics logic implemented in GET endpoint: calculates top 3 groups by marked numbers)
+        - [x] Retrieve all generated bingo cards for `{txid}` (using logic similar to `/api/cards`). (Uses `gameState.cards`)
+        - [x] Compare drawn numbers against each card to find win progress. (Uses `utils.countMarkedNumbers`)
+        - [x] Determine the top 3 closest-to-win states (e.g., 1 away, 2 away, 3 away) and the count of players in each state. Return this data. (Calculates top 3 groups by *count of marked numbers*, returns formatted string)
+- [x] **Real-time (Polling):**
+    - [x] **Client (Player & GM):** Periodically poll the `/api/game-state/{txid}` endpoint (e.g., every 1-2 seconds) to get the latest drawn numbers (and stats for GM). (Implemented in PlayPage.jsx)
+- [x] **Frontend (Game Master UI):**
+    - [x] Identify the GM client-side (e.g., set a flag/token in local storage when they submit the TXID on the PlayPage). (Implemented via localStorage token check in PlayPage.jsx)
+    - [x] Display a "Draw Number" button only if identified as GM for the current `{txid}`. (Implemented via conditional rendering in PlayPage.jsx)
+    - [x] Button click handler calls `/api/draw/{txid}`. (Implemented in PlayPage.jsx's handleDrawNumber)
+    - [x] Display a statistics box showing the top 3 closest-to-win states and player counts, updated via polling `/api/game-state/{txid}`. (Implemented via polling and state update in PlayPage.jsx, displays top 3 groups)
+- [x] **Frontend (Player UI):**
+    - [x] Receive updated drawn number list via polling `/api/game-state/{txid}`. (Implemented via polling in PlayPage.jsx)
+    - [x] Update React state with the list/sequence of drawn numbers. (Implemented in PlayPage.jsx)
+    - [x] **Display Sequence:** Show the drawn numbers in order (e.g., "B:12, I:25, N:40, ...") at the top of the page. (Implemented in PlayPage.jsx)
+    - [x] Pass the list of drawn numbers down to `BingoCard` component(s). (Implemented in PlayPage.jsx -> UserCardsDisplay.jsx)
+    - [x] Modify `BingoCard` to visually mark numbers present in the drawn numbers list. (Implemented in BingoCard.jsx)
 
 ### 4. Real-Time Card Marking & Win Detection
-- [ ] As numbers are drawn, automatically mark them on all user cards (Requires polling/WebSocket and `BingoCard` update)
+- [x] As numbers are drawn, automatically mark them on all user cards (Implemented via polling, state updates, and BingoCard component logic. Win detection happens on backend during /api/draw)
 
 ### 5. Determinism & Verification
 - [x] All card and number generation is deterministic and verifiable from block hash, CSV, and public process (Based on server logic)

@@ -317,15 +317,26 @@ function calculateNumbersNeededToWin(grid, drawnNumbers) {
 
 // --- End NEW Win Condition Helper ---
 
-// --- NEW: Count Marked Numbers --- 
+const columns = ['B', 'I', 'N', 'G', 'O']; // Define columns for easy access
+
+// --- NEW: Count Marked Numbers (Corrected for Column-Object Grid) ---
 function countMarkedNumbers(grid, drawnNumbers) {
     let count = 0;
     const drawnSet = new Set(drawnNumbers);
-    for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 5; c++) {
-            if (r === 2 && c === 2) { // Center FREE space
-                count++;
-            } else if (drawnSet.has(grid[r][c])) {
+
+    if (!grid || !drawnSet) return 0; // Basic validation
+
+    for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+        const colLetter = columns[colIndex];
+        const columnData = grid[colLetter];
+        if (!columnData) continue; // Skip if column data is missing
+
+        for (let rowIndex = 0; rowIndex < columnData.length; rowIndex++) {
+            const number = columnData[rowIndex];
+            // Check for the Free Space (N column, 3rd element, index 2)
+            if (colLetter === 'N' && rowIndex === 2) {
+                count++; // Free space always counts
+            } else if (number !== null && drawnSet.has(number)) {
                 count++;
             }
         }
@@ -333,46 +344,57 @@ function countMarkedNumbers(grid, drawnNumbers) {
     return count;
 }
 
-// --- NEW: Check for Bingo --- 
-function checkBingo(grid, drawnNumbers) {
+// --- NEW: Check for Win Condition (Corrected for Column-Object Grid) ---
+// Renamed from checkBingo
+function checkWinCondition(grid, drawnNumbers) {
     const drawnSet = new Set(drawnNumbers);
     const size = 5;
-    
-    // Check rows and columns
-    for (let i = 0; i < size; i++) {
+
+    if (!grid || !drawnSet) return false; // Basic validation
+
+    // Helper to check if a cell is marked (handles Free Space)
+    const isMarked = (colLetter, rowIndex) => {
+        if (colLetter === 'N' && rowIndex === 2) return true; // Free Space
+        const number = grid[colLetter]?.[rowIndex];
+        return number !== null && number !== undefined && drawnSet.has(number);
+    };
+
+    // Check rows
+    for (let r = 0; r < size; r++) {
         let rowComplete = true;
-        let colComplete = true;
-        for (let j = 0; j < size; j++) {
-            // Check row i
-            if (!((i === 2 && j === 2) || drawnSet.has(grid[i][j]))) {
+        for (let c = 0; c < size; c++) {
+            if (!isMarked(columns[c], r)) {
                 rowComplete = false;
+                break;
             }
-            // Check column i
-            if (!((j === 2 && i === 2) || drawnSet.has(grid[j][i]))) {
+        }
+        if (rowComplete) return true;
+    }
+
+    // Check columns
+    for (let c = 0; c < size; c++) {
+        let colComplete = true;
+        for (let r = 0; r < size; r++) {
+            if (!isMarked(columns[c], r)) {
                 colComplete = false;
+                break;
             }
         }
-        if (rowComplete || colComplete) {
-            return true;
-        }
+        if (colComplete) return true;
     }
 
     // Check diagonals
-    let diag1Complete = true;
-    let diag2Complete = true;
+    let diag1Complete = true; // Top-left to bottom-right
+    let diag2Complete = true; // Top-right to bottom-left
     for (let i = 0; i < size; i++) {
-        // Top-left to bottom-right
-        if (!((i === 2 && i === 2) || drawnSet.has(grid[i][i]))) {
+        if (!isMarked(columns[i], i)) {
             diag1Complete = false;
         }
-        // Top-right to bottom-left
-        if (!((i === 2 && (size - 1 - i) === 2) || drawnSet.has(grid[i][size - 1 - i]))) {
+        if (!isMarked(columns[i], size - 1 - i)) {
             diag2Complete = false;
         }
     }
-    if (diag1Complete || diag2Complete) {
-        return true;
-    }
+    if (diag1Complete || diag2Complete) return true;
 
     return false;
 }
@@ -386,5 +408,5 @@ module.exports = {
   generateAllCards,
   calculateNumbersNeededToWin,
   countMarkedNumbers,
-  checkBingo
+  checkWinCondition
 }; 
