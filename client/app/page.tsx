@@ -160,16 +160,24 @@ export default function AdminHomePage() { // Renamed back to default export
     return () => stopPolling(); 
   }, [raffleState.txId, startPolling, stopPolling]); // Include start/stop in dependencies
 
-  const handleFileUploadSuccess = (data: { filename: string, message: string }) => { // More specific type for data
+  const handleFileUploadSuccess = (data: { 
+    filename: string; 
+    message: string; 
+    hexCid: string; 
+    ipfsCid: string; 
+    participantCount: number; 
+  }) => { 
      console.log('File upload successful, API response:', data);
+     console.log(`Received from API -> hexCid: ${data.hexCid}, ipfsCid: ${data.ipfsCid}, count: ${data.participantCount}`); 
      setRaffleState(prevState => ({
       ...prevState,
       fileUploaded: true,
       participantFilename: data.filename,
-      // Remove attempts to set hash/count from this response
-      fileHash: null, // Explicitly set back to null if needed, or just don't touch
-      participantCount: 0, // Explicitly set back to 0 if needed, or just don't touch
-      ipfsHash: null // Explicitly set back to null if needed, or just don't touch
+      // Store the received data
+      fileHash: data.hexCid, // Store hexCid in fileHash
+      participantCount: data.participantCount, // Store participantCount
+      ipfsHash: data.ipfsCid, // Store ipfsCid in ipfsHash
+      error: null // Clear any previous upload errors
     }));
     // Log state *after* setting it (React state updates might be async)
     // Better to log inside useEffect or rely on the render log
@@ -361,50 +369,50 @@ export default function AdminHomePage() { // Renamed back to default export
 
       {/* Combined Row for Upload and Transaction Creation */} 
       <Row className="mb-4">
-          {/* Column 1: Upload Participants (Always shown initially, content disabled later) */} 
+          {/* Column 1: Upload Participants */} 
           <Col md={6}>
-              <Card>
+              <Card className="h-100"> {/* Ensure cards have same height */} 
                   <Card.Header>1. Upload Participants</Card.Header>
                   <Card.Body>
                       <FileUpload 
                           apiUrl={API_URL}
                           onUploadSuccess={handleFileUploadSuccess} 
-                          isDisabled={raffleState.fileUploaded} // Disables controls inside component
+                          isDisabled={raffleState.fileUploaded} // FileUpload handles internal disabling
                       />
                   </Card.Body>
               </Card>
           </Col>
 
-          {/* Column 2: Create Transaction (Conditionally shown based on state) */} 
+          {/* Column 2: Create Transaction (Always render Card, let component handle state) */} 
           <Col md={6}>
-              {/* Only render the card if file is uploaded and no txId yet */} 
-              {raffleState.fileUploaded && raffleState.participantFilename && !raffleState.txId && (
-                  <Card>
-                      <Card.Header>2. Create Transaction</Card.Header>
-                      <Card.Body>
-                          <TransactionCreator 
-                              apiUrl={API_URL}
-                              participantFilename={raffleState.participantFilename} 
-                              onTransactionCreated={handleTransactionCreated} 
-                              onTransactionConfirmed={handleTransactionConfirmed}
-                              isDisabled={raffleState.txId !== null} 
-                              isConfirmed={raffleState.txConfirmed}
-                              txId={raffleState.txId}
-                              blockHash={raffleState.blockHash}
-                              onReset={handleReset} 
-                              fileHash={null} 
-                          />
-                      </Card.Body>
-                  </Card>
-              )}
-              {/* Optional: Show placeholder or message if conditions not met */} 
-              {(!raffleState.fileUploaded || !raffleState.participantFilename || raffleState.txId) && (
-                  <Card className="h-100 border-dashed">
-                      <Card.Body className="d-flex align-items-center justify-content-center">
-                          <p className="text-muted">{raffleState.txId ? "Transaction submitted." : "Upload participants first."}</p>
-                      </Card.Body>
-                  </Card>
-              )}
+               <Card className="h-100"> {/* Ensure cards have same height */} 
+                  {/* Header changes based on whether file is uploaded/tx exists */}
+                  <Card.Header>
+                    {raffleState.fileUploaded ? 
+                      (raffleState.txId ? 'Transaction Status' : '2. Create Transaction') : 
+                      '2. Create Transaction'}
+                  </Card.Header>
+                  <Card.Body>
+                      {/* Render TransactionCreator always, pass props to control its state */}
+                      <TransactionCreator 
+                          apiUrl={API_URL}
+                          participantFilename={raffleState.participantFilename} 
+                          onTransactionCreated={handleTransactionCreated} 
+                          onTransactionConfirmed={handleTransactionConfirmed}
+                          // Disable based on file upload status or existing txId
+                          isDisabled={!raffleState.fileUploaded || raffleState.txId !== null} 
+                          isConfirmed={raffleState.txConfirmed}
+                          txId={raffleState.txId}
+                          blockHash={raffleState.blockHash}
+                          onReset={handleReset} 
+                          fileHash={raffleState.fileHash} 
+                      />
+                      {/* Add placeholder text if file not uploaded yet */}
+                      {!raffleState.fileUploaded && (
+                          <p className="text-muted mt-3">Upload participants list first to see instructions.</p>
+                      )}
+                  </Card.Body>
+              </Card>
           </Col>
       </Row>
 

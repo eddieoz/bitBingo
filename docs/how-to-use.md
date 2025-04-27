@@ -1,131 +1,152 @@
 # How to Use bitBingo
 
-Welcome to [bitBingo](https://bitBingo.sats4.life), a trustless and transparent raffle system powered by Bitcoin's blockchain. This guide will walk you through each step of running a raffle and verifying its results.
+Welcome to [bitBingo](https://bitBingo.sats4.life), a trustless and transparent raffle system powered by Bitcoin's blockchain. This guide will walk you through the steps for both **Raffle Administrators** (running the raffle) and **Players** (participating).
 
-## Quick Start Guide
+## Quick Start
 
-1. **Prepare your participant list** in CSV format
-2. **Upload your CSV** to the bitBingo platform
-3. **Create a Bitcoin transaction** with the IPFS data
-4. **Submit the transaction ID** to bitBingo
-5. **Wait for confirmation** on the Bitcoin blockchain
-6. **Get your winners** automatically selected by the system
-7. **Verify the results** yourself (optional but encouraged)
+**For Admins:**
+1.  **Prepare participant list** (CSV with "name" header).
+2.  **Upload CSV** to bitBingo platform (get Hex CID).
+3.  **Create Bitcoin TX** with `OP_RETURN YOUR_CID_HEX_VALUE`.
+4.  **Submit TXID** to bitBingo.
+5.  Share the **Game Link** (`https://bitBingo.sats4.life/play/YOUR_TXID`) with players.
+6.  Wait for blockchain confirmation. Winners are automatically determined.
+
+**For Players:**
+1.  Receive the **Game Link** from the admin.
+2.  Visit the link in your browser.
+3.  **Log in** using your nickname (as listed in the admin's CSV).
+4.  Watch the game unfold and see your cards marked automatically.
+5.  Check if you're a winner once the game concludes.
 
 ## Detailed Instructions
 
-### Step 1: Prepare Your Participant List
+### For Raffle Administrators
 
-Create a CSV file with your participants. The file should:
-- Have a header row with "name" (recommended)
-- List each participant on a separate line
-- Include only one entry per line
+#### Step 1: Prepare Your Participant List
+
+Create a CSV file with your participants. The file must:
+- Have a header row exactly matching `name`.
+- List each participant's unique nickname on a separate line.
 
 Example CSV:
-```
+```csv
 name
-John Doe
-Jane Smith
-Bob Johnson
-Alice Williams
+PlayerOne
+LuckyPlayer
+BingoFan_99
+AliceW
 ```
 
-You can use any spreadsheet software like Excel or Google Sheets to create this file, then export/save as CSV.
+*(Spreadsheet software like Excel or Google Sheets can export/save as CSV.)*
 
-### Step 2: Upload Your CSV to bitBingo
+#### Step 2: Upload Your CSV to bitBingo
 
-1. Visit [https://bitBingo.sats4.life](https://bitBingo.sats4.life)
-2. Click on the "Upload Participants" button
-3. Select your CSV file from your device
-4. The system will process your file and upload it to IPFS (a decentralized storage network)
-5. Once uploaded, you'll receive a **CID (Content Identifier) in hex format**
-6. Copy this hex value - you'll need it for the next step
+1.  Visit [https://bitBingo.sats4.life](https://bitBingo.sats4.life) (or the admin-specific portal, if separate).
+2.  Use the "Upload Participants" (or similar) feature.
+3.  Select your CSV file.
+4.  The system processes the file, uploads it to IPFS, assigns Bingo cards, and provides a **CID (Content Identifier) in hex format**.
+5.  **Copy this hex value** - it's crucial for the next step.
 
-### Step 3: Create a Bitcoin Transaction
+#### Step 3: Create a Bitcoin Transaction
 
-You need to create a special Bitcoin transaction that includes your raffle data. This requires a Bitcoin wallet that supports custom scripts.
+You need a Bitcoin wallet supporting custom scripts (like Electrum) to embed the CID.
 
-#### Using Electrum Wallet (recommended):
+**Using Electrum Wallet (recommended):**
+1.  Install [Electrum](https://electrum.org/).
+2.  Go to the **Send** tab.
+3.  In **Pay to**, enter: `script(OP_RETURN YOUR_CID_HEX_VALUE)`
+    *   *Example:* `script(OP_RETURN 626...)`
+4.  Set the **Amount** to **zero**.
+5.  Choose an appropriate transaction **fee** (higher fees confirm faster).
+6.  Click **Pay...**, then **Sign**, and **Broadcast**.
+7.  **Copy the Transaction ID (txid)** immediately after broadcasting.
 
-1. Download and install [Electrum](https://electrum.org/) if you don't have it
-2. Open Electrum and go to the **Send** tab
-3. In the **Pay to** field, enter exactly:
-   ```
-   script(OP_RETURN YOUR_CID_HEX_VALUE)
-   ```
-   For example:
-   ```
-   script(OP_RETURN 6261666b72656966753377663376717a347537756b747a65367465326c78623537656b777267336e67646a6c346b74676f6167356a667775646769)
-   ```
-4. Set **zero** for amount (the transaction is just for data storage, not value transfer)
-5. Choose an appropriate fee (higher for faster confirmation)
-6. Click **Pay...**, then **Sign** and **Broadcast**
-7. Copy the **Transaction ID** (txid) that appears
+#### Step 4: Submit the Transaction ID & Share Link
 
-### Step 4: Submit the Transaction ID to bitBingo
+1.  Return to [https://bitBingo.sats4.life](https://bitBingo.sats4.life) (or the admin portal).
+2.  Enter the **Transaction ID (txid)** in the designated field.
+3.  Click "Submit" (or similar) to register the game.
+4.  The system generates a unique **Game Link**: `https://bitBingo.sats4.life/play/YOUR_TXID`
+5.  **Share this link with all your participants.**
 
-1. Return to [https://bitBingo.sats4.life](https://bitBingo.sats4.life)
-2. Enter the Transaction ID in the designated field
-3. Click "Submit" to start monitoring
+#### Step 5: Wait for Confirmation & Results
 
-### Step 5: Wait for Blockchain Confirmation
+- bitBingo monitors the Bitcoin blockchain for your transaction's confirmation.
+- Once confirmed (typically ~10 minutes, depends on fees/network), the block hash is used as a source of randomness to determine the "drawn" numbers.
+- The system automatically compares drawn numbers to player cards according to Bingo rules.
+- When a winning condition is met, the game concludes, and winners are identified.
 
-The system will now monitor the Bitcoin blockchain until your transaction is confirmed in a block. This typically takes:
-- 10 minutes on average
-- Could be faster or slower depending on network congestion and the fee you paid
+#### Step 6: View Winners
 
-You can check the status on the bitBingo page or through a block explorer like [Blockstream Explorer](https://blockstream.info/) by searching for your transaction ID.
+- Winners are automatically displayed on the Game Link page (`/play/YOUR_TXID`) once the game concludes.
+- As the admin, you can also view the results there.
 
-### Step 6: View Your Winners
+### For Players
 
-Once your transaction is confirmed:
-1. Set the number of winners you wish to withdraw
-2. The winners are determined using the block hash as a source of randomness, then derived bip32 wallets
-3. You'll see the list of winners on screen
-4. The process is deterministic, you can restart the process and will have always the same results.
+#### Step 1: Receive the Game Link
 
-### Step 7: Verify the Results (Optional)
+The raffle administrator will share a unique link, like `https://bitBingo.sats4.life/play/SOME_TRANSACTION_ID`.
 
-One of the key benefits of bitBingo is that anyone can independently verify the results. Here's how:
+#### Step 2: Access the Game Page
 
-1. **Gather the necessary information:**
-   - The block hash of the Bitcoin block containing your transaction
-   - Your original CSV file with participants
-   - The number of winners drawn
+Open the link in your web browser. You'll see the game interface for that specific raffle.
 
-2. **Use the Ian Coleman BIP39 Tool:**
-   - Go to [Ian Coleman's BIP39 Tool](https://iancoleman.io/bip39/)
-   - Scroll down to the "BIP39 Seed" field and enter the block hash
-   - Select the "BIP44" tab
-   - Look at the derived public keys for paths starting with m/44'/0'/0'/0/0, m/44'/0'/0'/0/1, etc.
+#### Step 3: Log In
 
-3. **Calculate Each Winner:**
-   - For each winner, take the public key corresponding to the derivation path
-   - Use the last 8 characters of the hex representation
-   - Convert this to a decimal number
-   - Calculate: winner_index = (decimal_number) modulo (total_participants)
-   - The participant at position winner_index in your CSV is the winner (starting from zero)
+1.  Find the "Login" or "Enter Nickname" section.
+2.  Enter the **exact nickname** that the administrator used for you in their participant list (case-sensitivity might matter).
+3.  Click "Login".
 
-Example calculation:
-```
-Public key for m/44'/0'/0'/0/0 ends with: 8fe9b231
-Hex to decimal: 8fe9b231 = 2414255665
-If you have 100 participants: 2414255665 % 100 = 65
-The participant at position 65 is the winner (you count zero for the first participant)
-```
+#### Step 4: View Your Cards & Game Progress
+
+- Once logged in, you should see your assigned Bingo card(s).
+- The page shows the game's Transaction ID.
+- It displays the list of numbers "drawn" so far, derived from the Bitcoin block hash once the transaction confirms.
+- Your card(s) will automatically mark numbers as they are drawn.
+- The page updates automatically (usually every few seconds) to reflect the latest game state.
+
+#### Step 5: Check for Winners
+
+- Keep the page open or revisit it.
+- Once the transaction is confirmed and the game logic determines a winner based on the drawn numbers and card patterns, a "BINGO!" banner will appear, announcing the winner(s) by nickname and card ID.
+- If you are a winner, your winning card might be highlighted.
+
+### Step 7 (Admin & Players): Verify the Results (Optional)
+
+The transparency of bitBingo allows anyone to verify the results independently.
+
+1.  **Gather Info:**
+    *   The **Block Hash** of the Bitcoin block containing the admin's transaction (visible on the game page or a block explorer using the TXID).
+    *   The original **participant list (CSV)**. *Note: The admin might need to share this for full verification.*
+    *   The **winning sequence** and **winner details** (from the game page).
+
+2.  **Use Ian Coleman BIP39 Tool:**
+    *   Go to [https://iancoleman.io/bip39/](https://iancoleman.io/bip39/) (run offline for security if preferred).
+    *   In the "**BIP39 Seed**" field (NOT the Mnemonic field), paste the **Block Hash**.
+    *   Select the "**BIP44**" tab.
+    *   Set the "Coin" type if necessary (usually Bitcoin 0').
+    *   Look at the derived addresses/keys under the "Derived Addresses" section. The sequence of these derived keys/addresses provides the deterministic randomness.
+
+3.  **Relate Derived Data to Drawn Numbers/Winners:**
+    *   The *exact mechanism* relating the derived keys (e.g., `m/44'/0'/0'/0/0`, `m/44'/0'/0'/0/1`, ...) to the drawn Bingo numbers (1-75) needs to be understood from the bitBingo backend logic (likely found in `server/utils.js` or `server/index.js`). This part of the documentation needs refinement once that logic is fully analyzed.
+    *   *Hypothetical Example:* The last few bytes of each derived public key might be converted to a decimal number, and `modulo 75 + 1` could determine the sequence of drawn numbers until a winner is found according to standard Bingo rules applied to the cards generated from the original CSV/CID.
+
+*(The original documentation's example calculation using modulo N was likely for a simpler raffle winner selection, not a full Bingo game simulation. The core principle of using the block hash and BIP32 derivation for deterministic randomness remains.)*
 
 ## Troubleshooting
 
-- **Transaction not confirming?** Check if you paid enough fee. You can try to "bump" the fee in Electrum.
-- **CSV upload failing?** Ensure your CSV is properly formatted with a header row.
-- **Winners not displaying?** Make sure your transaction has at least 1 confirmation on the blockchain.
-- **Verification not matching?** Double-check that you're using the exact block hash and the same original participant list.
+- **Admin: Transaction not confirming?** Check fees; consider fee bumping (e.g., RBF in Electrum).
+- **Admin: CSV upload failing?** Ensure format is correct (header `name`, one nickname per line).
+- **Player: Login failing?** Double-check your nickname matches the admin's list exactly. Clear browser cache if needed.
+- **Player: Game not starting/stuck?** The admin's transaction might not be confirmed yet. Check the TXID on a block explorer ([Blockstream Explorer](https://blockstream.info/)).
+- **Verification not matching?** Ensure you're using the *exact* block hash and the *correct* participant list/card generation logic. The specific mapping from derived keys to drawn numbers is critical.
 
 ## Remember
 
-- The entire process is trustless and transparent
-- Winners are determined solely by Bitcoin's blockchain data
-- No one (not even the raffle organizer) can manipulate the results
-- All data is publicly verifiable
+- The process aims for trustlessness and transparency.
+- Game outcomes are determined by public Bitcoin blockchain data (block hash) and predefined rules.
+- No single party controls the random number generation post-transaction.
+- Verification is possible but requires understanding the specific derivation path and number generation logic used by *this specific implementation* of bitBingo.
 
-For questions or support, please refer to the project's GitHub repository or contact information provided on the website. 
+For further questions, refer to the project's GitHub repository or contact information. 

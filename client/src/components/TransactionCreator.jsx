@@ -124,21 +124,60 @@ const TransactionCreator = ({
 
   return (
     <div>
-      {/* Robust rendering for error state */} 
+      {/* Error/Message Alerts first */} 
       {error && (
           <Alert variant="danger">
               {typeof error === 'string' ? error : JSON.stringify(error)}
           </Alert>
       )}
-      {/* Robust rendering for message state */} 
       {message && (
           <Alert variant="info">
               {typeof message === 'string' ? message : JSON.stringify(message)}
           </Alert>
       )}
-      
-      {participantFilename && renderTxIdForm()}
-      {renderTransactionDetails()}
+
+      {/* Conditional rendering based on txId */} 
+      {txId ? (
+        // If txId exists, only show details
+        renderTransactionDetails()
+      ) : (
+        // If txId does NOT exist, show Instructions (if fileHash exists) and Form (if participantFilename exists)
+        <>
+          {fileHash && (
+            <Card className="mb-3 bg-light border-secondary">
+              <Card.Body>
+                <Card.Title>Create Transaction Instructions</Card.Title>
+                <p className="small">
+                  For security, this app doesn't handle private keys or create transactions. 
+                  Please follow these steps:
+                </p>
+                <ol className="small">
+                  <li>Copy the hex CID below</li>
+                  <li>Create a Bitcoin transaction in your preferred wallet that includes this CID in an OP_RETURN output</li>
+                  <li>Submit the transaction ID once broadcast</li>
+                </ol>
+                <InputGroup className="mb-3">
+                  <Form.Control
+                    value={fileHash}
+                    readOnly
+                    aria-label="Hex CID"
+                    className="bg-white"
+                  />
+                  <Button 
+                    variant="outline-secondary" 
+                    onClick={copyHexCIDToClipboard}
+                    disabled={!fileHash}
+                  >
+                    Copy
+                  </Button>
+                </InputGroup>
+              </Card.Body>
+            </Card>
+          )}
+
+          {participantFilename && renderTxIdForm()} 
+        </>
+      )}
     </div>
   );
 };

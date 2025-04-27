@@ -11,14 +11,17 @@ Here's the step-by-step process triggered when a user requests their cards using
 1.  **Fetch Transaction:** The backend retrieves the Bitcoin transaction details using the provided `transactionId` via the BlockCypher API.
 2.  **Validate Confirmation:** The system checks if the transaction is confirmed and retrieves its `block_hash` and `block_height`. If not confirmed, card generation cannot proceed.
 3.  **Calculate Seed Base:** The backend calculates the SHA-256 hash of the confirmation `block_hash`. This resulting hash (referred to as `seedBase`) serves as the primary seed for card generation.
+3.  **Define Base Seed:** The confirmation `block_hash` (hex string) itself serves as the **Base Seed** for all subsequent cryptographic derivations in the game.
 4.  **Extract IPFS CID:** The backend extracts the participant list's IPFS CID (expected as a hex representation of the UTF-8 CID string) from the `OP_RETURN` data within the confirmed transaction's outputs.
 5.  **Fetch Participant List:** The hex data is converted back to a standard IPFS CID string (e.g., "bafk...") and used to fetch the participant CSV file from an IPFS gateway (like Pinata).
 6.  **Parse CSV & Find User:** The CSV content is parsed using standard CSV header detection (the first row is treated as a header and skipped). The backend finds all line indices (0-based array index, starting from the first *data* row after the header) where the provided `nickname` appears (case-insensitive). Each matching line corresponds to one bingo card for the user.
 7.  **Derive Public Key:** For *each* `lineIndex` found for the user:
     *   A unique BIP32 hierarchical deterministic (HD) public key is derived.
     *   **Seed:** The `seedBase` (SHA256 hash of the confirmation block hash, obtained in step 3) is used as the seed for the BIP32 root node.
+    *   **Seed:** The **Base Seed** (confirmation block hash hex string, from step 3) is used as the seed for the BIP32 root node.
     *   **Derivation Path:** The path `m/44'/0'/0'/0/{lineIndex}` is used, ensuring each line number (starting from 0 for the first participant after the header) results in a unique key.
     *   The resulting `publicKey` (as a Buffer, typically compressed 33-byte format) is specific to that participant line and the `seedBase`.
+    *   The resulting `publicKey` (as a Buffer, typically compressed 33-byte format) is specific to that participant line and the Base Seed.
 8.  **Generate Bingo Card Grid:** For *each* derived `publicKey` (Buffer):
     *   The `publicKey` Buffer is converted to its **hexadecimal string representation** (`publicKeyHex`, typically 66 characters for compressed keys).
     *   This `publicKeyHex` string is then hashed using SHA-256.
@@ -41,6 +44,7 @@ To manually verify a specific bingo card for a given user:
     *   `nickname`: The username whose card you want to verify.
 2.  **Find Confirmation Block Hash:** Use a block explorer (e.g., mempool.space, blockstream.info) to find the `transactionId`. Note down the `block_hash` of the block it was confirmed in.
 3.  **Calculate Seed Base:** Calculate the SHA-256 hash of the `block_hash` obtained in step 2. You can use online tools or command-line utilities (e.g., `echo -n "BLOCK_HASH" | sha256sum`). This result is the `seedBase` (hex string).
+3.  **Identify Base Seed:** The `block_hash` (hex string) obtained in step 2 is the **Base Seed**.
 4.  **Find OP_RETURN Data:** In the transaction details (from step 2), find the output with `script_type` as `null-data`. Copy the `data_hex` value.
 5.  **Decode IPFS CID:** Convert the `data_hex` from step 4 back into a readable string (UTF-8). You can use online hex-to-string converters. The result should be an IPFS CID (e.g., `baf...` or `Qm...`).
 6.  **Fetch Participant List:** Use an IPFS gateway (like `https://ipfs.io/ipfs/YOUR_CID` or `https://gateway.pinata.cloud/ipfs/YOUR_CID`) to view the CSV file content using the CID from step 5.
@@ -50,6 +54,7 @@ To manually verify a specific bingo card for a given user:
     *   In the "BIP39 Mnemonic" field, **clear any existing words**. We are not using a mnemonic.
     *   Select the "BIP32" tab.
     *   In the "BIP32 Root Key" field, paste the `seedBase` (hex string from step 3).
+    *   In the "BIP32 Root Key" field, paste the **Base Seed** (block hash hex string from step 3).
     *   Select the "BIP32" Derivation Path tab.
     *   Set the derivation path to `m/44'/0'/0'/0/{lineIndex}` (replace `{lineIndex}` with the number from step 7).
     *   Find the derived public key for this path in the "Derived Addresses" table. Copy the **compressed public key** (hex string, should start with `02` or `03`, 66 characters long). Let this be `publicKeyHex`.
@@ -70,9 +75,13 @@ To manually verify a specific bingo card for a given user:
 
 The sequence of drawn numbers is also deterministic, derived from the same `seedBase` (SHA256 of the confirmation block hash) using sequential derivation indices.
 
+The sequence of drawn numbers is also deterministic, derived from the **Base Seed** (confirmation block hash) using sequential derivation indices.
+
 1.  **Base Seed:** The `seedBase` (SHA256 hash of the confirmation block hash) is used, identical to card generation.
+1.  **Base Seed:** The **Base Seed** (confirmation block hash hex string) is used, identical to card generation.
 2.  **Sequential Derivation:** Numbers are drawn based on an incrementing derivation index, starting from `index = 0`.
 3.  **Derive Public Key:** For each potential draw `index` (starting at 0), derive the public key using the `seedBase` and the path `m/44'/0'/0'/0/{index}`.
+3.  **Derive Public Key:** For each potential draw `index` (starting at 0), derive the public key using the **Base Seed** and the path `m/44'/0'/0'/0/{index}`.
 4.  **Hash to Number:** Take the derived `publicKey` (Buffer). Take the **last 4 bytes** of this raw buffer, interpret them as a 32-bit unsigned Big Endian integer (`decimalValue`). Calculate the bingo number as `(decimalValue % 75) + 1`. (Note: This differs from card generation; it does *not* use SHA256 here).
 5.  **Ensure Uniqueness:** Check if the generated `bingoNumber` has already been drawn in the current game sequence. If it *has* been drawn, **discard this number and increment the `index`**, then repeat steps 3 and 4 with the new `index` until a unique number is found.
 6.  **Add to Sequence:** Once a unique `bingoNumber` is found, it is added to the official sequence of drawn numbers for the game, and the system records the `index` that successfully generated it.
@@ -87,12 +96,15 @@ To manually verify the sequence of drawn numbers:
     *   The sequence of drawn numbers as displayed by the BitBingo application.
 2.  **Find Confirmation Block Hash:** As in card verification (step 2), find the `block_hash` for the `transactionId`.
 3.  **Calculate Seed Base:** As in card verification (step 3), calculate the SHA-256 hash of the `block_hash` to get the `seedBase` (hex).
+3.  **Identify Base Seed:** The `block_hash` (hex string) obtained in step 2 is the **Base Seed**.
 4.  **Iterate and Verify:**
     *   Initialize an empty list for your manually verified sequence `verifiedSequence = []`.
     *   Initialize the derivation index `currentIndex = 0`.
     *   Loop until `verifiedSequence` matches the length of the sequence shown in the application:
         *   **Derive Key:** Use the BIP32 tool (as in card step 8) with the `seedBase` and derivation path `m/44'/0'/0'/0/{currentIndex}`. Get the **compressed** `publicKeyHex`.
+        *   **Derive Key:** Use the BIP32 tool (as in card step 8) with the **Base Seed** and derivation path `m/44'/0'/0'/0/{currentIndex}`. Get the **compressed public key Buffer** or its hex representation (`publicKeyHex`).
         *   **Hash to Number (Manual):** Take the `publicKeyHex` obtained from the tool. Take the **last 8 characters** (representing the last 4 bytes) of this **compressed** hex string. Convert this 8-character hex substring to a decimal integer (`decimalValue`). Calculate `bingoNumber = (decimalValue % 75) + 1`.
+        *   **Hash to Number (Manual):** Obtain the derived public key Buffer (e.g., by converting the hex from the tool). Take the **last 4 bytes** of this **Buffer**. Convert these 4 bytes to an unsigned 32-bit Big Endian integer (`decimalValue`). Calculate `bingoNumber = (decimalValue % 75) + 1`.
         *   **Check Uniqueness:** See if `bingoNumber` is already present in `verifiedSequence`.
         *   **If Unique:** Add `bingoNumber` to `verifiedSequence`.
         *   **Increment Index:** Always increment `currentIndex = currentIndex + 1` (regardless of whether the number was unique or not).

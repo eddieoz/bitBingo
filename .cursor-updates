@@ -87,3 +87,4 @@ Updated .gitignore to correctly ignore the client/.next directory.
 feat: Display winner card ID on admin and participant pages. 
 
 fix: Include cardId in winner data returned by backend API. 
+fix: Restore Admin page UI elements (header details, transaction box) by fixing backend upload API and frontend component rendering. 

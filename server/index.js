@@ -6,6 +6,10 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const utils = require('./utils'); 
+const axios = require('axios');
+const FormData = require('form-data');
+const csvtojson = require('csvtojson');
+require('dotenv').config(); // Ensure env vars like PINATA_JWT are loaded
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +23,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // TODO: Replace with a persistent database for production
 const gameStates = new Map(); // txid -> gameState
 const uploadedFiles = new Map(); // filename -> filePath
+
+// --- Pinata Config (from bitRaffle) ---
+const PINATA_JWT = process.env.PINATA_JWT;
+const PINATA_UPLOAD_URL = process.env.PINATA_UPLOAD_URL || 'https://uploads.pinata.cloud/v3/files'; 
+const PINATA_PUBLIC_GATEWAY_BASE = process.env.PINATA_PUBLIC_GATEWAY_BASE || 'https://gateway.pinata.cloud/ipfs/'; // Example Pinata gateway
 
 // --- File Upload Setup ---
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -37,22 +46,118 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// --- Helper: Upload to Pinata (REVERTED to bitRaffle V3 structure) ---
+async function uploadToPinata(filePath, fileName) {
+  if (!PINATA_JWT) {
+      console.error('Pinata JWT key is missing. Cannot upload to IPFS.');
+      throw new Error('IPFS configuration error: Missing Pinata JWT.');
+  }
+  try {
+    const fileStream = fs.createReadStream(filePath);
+    const formData = new FormData();
+    // Match bitRaffle payload
+    formData.append('file', fileStream, { filename: fileName }); // Keep filename hint for stream
+    formData.append('name', fileName); // Explicit name field
+    formData.append('network', 'public'); // Network field used by bitRaffle
+
+    console.log(`[Pinata V3] Uploading ${fileName} to ${PINATA_UPLOAD_URL}`);
+    const response = await axios.post(PINATA_UPLOAD_URL, formData, {
+      maxBodyLength: Infinity, // Ensure large files are allowed
+      headers: {
+        // Use the form-data library's generated headers
+        ...formData.getHeaders(), 
+        // Override Authorization header
+        'Authorization': `Bearer ${PINATA_JWT}`
+      }
+    });
+    console.log('[Pinata V3] Upload successful:', response.data);
+    // Assuming V3 response structure provides CID directly
+    if (!response.data || !response.data.data || !response.data.data.cid) { 
+        // Log the actual response for debugging if CID is missing
+        console.error('[Pinata V3] Unexpected response structure:', response.data);
+        throw new Error('IPFS CID not found in Pinata V3 response data object.');
+    }
+    return response.data.data.cid; // Return the IPFS CID from V3 response data object
+  } catch (error) {
+    console.error('[Pinata V3] Error uploading:', error.response?.data || error.message);
+    let errorMsg = 'Failed to upload file to IPFS via Pinata V3.';
+    if (error.response?.status === 401) {
+        errorMsg = 'IPFS upload failed: Invalid Pinata JWT or insufficient scopes for V3 endpoint.';
+    } else if (error.response?.data?.error) {
+        errorMsg = `IPFS upload failed: ${error.response.data.error}`;
+    } else if (error.message.includes('IPFS CID not found')) {
+        errorMsg = error.message; // Propagate specific CID error
+    }
+    throw new Error(errorMsg);
+  }
+}
 
 // ======================================================
 // ==                API Endpoints                     ==
 // ======================================================
 
-// --- 1. Upload Participant List --- 
-app.post('/api/upload-participants', upload.single('participantFile'), (req, res) => {
+// --- 1. Upload Participant List (MODIFIED) --- 
+app.post('/api/upload-participants', upload.single('participantFile'), async (req, res) => { // Made async
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded.' });
   }
-  console.log(`[Upload] File received: ${req.file.filename}, Path: ${req.file.path}`);
-  uploadedFiles.set(req.file.filename, req.file.path);
-  res.status(200).json({ 
-      message: 'File uploaded successfully!', 
-      filename: req.file.filename 
-  });
+  
+  const filePath = req.file.path;
+  const originalFilename = req.file.originalname; // Use original name for context
+  const uniqueFilename = req.file.filename; // The saved unique name
+  console.log(`[Upload] File received: ${uniqueFilename}, Original: ${originalFilename}, Path: ${filePath}`);
+  
+  try {
+      // 1. Count Participants
+      console.log(`[Upload] Parsing CSV: ${filePath}`);
+      const participants = await csvtojson().fromFile(filePath);
+      const participantCount = participants.length;
+      if (participantCount === 0) {
+        // Clean up the invalid file
+        fs.unlinkSync(filePath);
+        console.warn(`[Upload] Invalid or empty CSV file uploaded: ${uniqueFilename}`);
+        return res.status(400).json({ message: 'CSV file is empty or invalid.' });
+      }
+      console.log(`[Upload] Found ${participantCount} participants.`);
+
+      // 2. Calculate Hex CID (SHA256 hash of the file content)
+      const fileBuffer = fs.readFileSync(filePath);
+      const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+      console.log(`[Upload] Calculated SHA256 Hex CID: ${fileHash}`);
+
+      // 3. Upload to IPFS via Pinata
+      console.log(`[Upload] Uploading ${uniqueFilename} to Pinata...`);
+      const ipfsCid = await uploadToPinata(filePath, uniqueFilename); // Use unique name for Pinata
+      console.log(`[Upload] IPFS CID received: ${ipfsCid}`);
+
+      // 4. Store file info (optional, as check-transaction uses OP_RETURN now)
+      // uploadedFiles.set(uniqueFilename, { filePath, fileHash, ipfsCid }); // Store more info if needed
+      // For now, just store path keyed by unique filename, needed by check-transaction? -> No, check-tx uses op_return!
+      // Let's keep the simple path storage for now, though it might become redundant if check-tx works fully
+      uploadedFiles.set(uniqueFilename, filePath); 
+
+      // 5. Send Response
+      res.status(200).json({ 
+          message: 'File uploaded successfully!', 
+          filename: uniqueFilename, // Return the unique filename used on server
+          hexCid: fileHash,         // <-- ADDED
+          ipfsCid: ipfsCid,         // <-- ADDED
+          participantCount: participantCount // <-- ADDED
+      });
+
+  } catch (error) {
+      console.error(`[Upload] Error processing file ${uniqueFilename}:`, error);
+      // Clean up uploaded file on error
+      if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+      }
+      // Remove from map if it was added
+      uploadedFiles.delete(uniqueFilename);
+
+      res.status(500).json({ 
+          message: `Failed to process file: ${error.message}`
+      });
+  }
 });
 
 // --- 2. Check Transaction & Initialize Game --- 
