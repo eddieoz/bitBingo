@@ -219,36 +219,36 @@ Enhance the bingo game to support two distinct winning modes: "Full Card Win Onl
 ## Roadmap & Stories
 
 ### 7. Backend: Core Logic & State Management (@tests-tdd+bdd.mdc)
-- [ ] **Story: Add Game Mode to State:** Modify `gameStates` in `server/index.js` to include `gameMode: 'partialAndFull' | 'fullCardOnly'`, `partialWinOccurred: boolean` (default false), `partialWinners: string[] | null`, `fullCardWinners: string[] | null`. Adjust existing `winners` field usage if necessary.
-- [ ] **Story: Game Initialization with Mode:** Update `/api/check-transaction` (or relevant init endpoint) to accept a `gameMode` parameter in the request body and store it in the new `gameStates` entry. Add validation for the mode.
-- [ ] **Story: Rename `checkWinCondition`:** Rename existing `checkWinCondition` in `server/utils.js` to `checkLineWin` for clarity. Update all call sites.
-- [ ] **Story: Implement `checkFullCardWin`:** Create a new function `checkFullCardWin(grid, drawnNumbers)` in `server/utils.js` that returns `true` if all 24 numbers on the card are present in `drawnNumbers`, `false` otherwise. Include unit tests.
-- [ ] **Story: Update `/api/draw/:txid` Logic:**
-    - [ ] Refactor endpoint to check `gameState.gameMode`.
-    - [ ] **`fullCardOnly` Mode:** Call only `checkFullCardWin`. On win, set `isOver=true`, record winners in `fullCardWinners`.
-    - [ ] **`partialAndFull` Mode (Before Partial Win):** If `!partialWinOccurred`, call `checkLineWin`. On win, set `partialWinOccurred=true`, record `partialWinners`. **Do not** set `isOver`. Return state indicating partial win occurred.
-    - [ ] **`partialAndFull` Mode (After Partial Win):** If `partialWinOccurred`, call only `checkFullCardWin`. On win, set `isOver=true`, record `fullCardWinners`.
-    - [ ] Ensure draw requests are rejected if `partialWinOccurred` is true *unless* the GM has signaled continuation (e.g., implicitly handled by frontend controls enabling draw button again).
-- [ ] **Story: Implement `/api/end-game/:txid` (POST):** Create a new endpoint requiring GM token. Sets `isOver = true` for the specified game `txid`. Used when GM chooses not to continue after a partial win in `partialAndFull` mode.
-- [ ] **Story: Update `/api/game-state/:txid` Response:** Modify the endpoint to return the new state fields (`gameMode`, `partialWinOccurred`, `partialWinners`, `fullCardWinners`).
-- [ ] **Story: Update GM Statistics:**
-    - [ ] In `partialAndFull` mode, when `partialWinOccurred` is true, modify the statistics calculation to report progress towards a full card win (e.g., count of marked squares per card, grouped by count).
-    - [ ] Ensure the correct statistics (line-based or full-card-based) are returned based on the current game phase.
+- [x] **Story: Add Game Mode to State:** Modify `gameStates` in `server/index.js` to include `gameMode: 'partialAndFull' | 'fullCardOnly'`, `partialWinOccurred: boolean` (default false), `partialWinners: string[] | null`, `fullCardWinners: string[] | null`. Adjust existing `winners` field usage if necessary.
+- [x] **Story: Game Initialization with Mode:** Update `/api/check-transaction` (or relevant init endpoint) to accept a `gameMode` parameter in the request body and store it in the new `gameStates` entry. Add validation for the mode.
+- [x] **Story: Rename `checkWinCondition`:** Rename existing `checkWinCondition` in `server/utils.js` to `checkLineWin` for clarity. Update all call sites.
+- [x] **Story: Implement `checkFullCardWin`:** Create a new function `checkFullCardWin(grid, drawnNumbers)` in `server/utils.js` that returns `true` if all 24 numbers on the card are present in `drawnNumbers`, `false` otherwise. Include unit tests.
+- [x] **Story: Update `/api/draw/:txid` Logic:**
+    - [x] Refactor endpoint to check `gameState.gameMode`.
+    - [x] **`fullCardOnly` Mode:** Call only `checkFullCardWin`. On win, set `isOver=true`, record winners in `fullCardWinners`.
+    - [x] **`partialAndFull` Mode (Before Partial Win):** If `!partialWinOccurred`, call `checkLineWin`. On win, set `partialWinOccurred=true`, record `partialWinners`. **Do not** set `isOver`. Return state indicating partial win occurred.
+    - [x] **`partialAndFull` Mode (After Partial Win):** If `partialWinOccurred`, call only `checkFullCardWin`. On win, set `isOver=true`, record `fullCardWinners`.
+    - [x] Ensure draw requests are rejected if `partialWinOccurred` is true *unless* the GM has signaled continuation (e.g., implicitly handled by frontend controls enabling draw button again).
+- [x] **Story: Implement `/api/end-game/:txid` (POST):** Create a new endpoint requiring GM token. Sets `isOver = true` for the specified game `txid`. Used when GM chooses not to continue after a partial win in `partialAndFull` mode.
+- [x] **Story: Update `/api/game-state/:txid` Response:** Modify the endpoint to return the new state fields (`gameMode`, `partialWinOccurred`, `partialWinners`, `fullCardWinners`).
+- [x] **Story: Update GM Statistics:**
+    - [x] In `partialAndFull` mode, when `partialWinOccurred` is true, modify the statistics calculation to report progress towards a full card win (e.g., count of marked squares per card, grouped by count).
+    - [x] Ensure the correct statistics (line-based or full-card-based) are returned based on the current game phase.
 
 ### 8. Frontend: UI & Interaction (@tests-tdd+bdd.mdc) - Target: `client/app/page.tsx` (Admin/GM Page)
-- [ ] **Story: Add Game Mode Selection (GM):** In `client/app/page.tsx`, when setting up a new game (after file upload, before calling `/api/check-transaction`), add radio buttons/selector for "Partial Win & Full Card" and "Full Card Win Only".
-- [ ] **Story: Pass Game Mode on Init:** Modify the frontend logic in `client/app/page.tsx` that calls `/api/check-transaction` to include the selected `gameMode`.
-- [ ] **Story: Disable Mode Selection:** Disable the game mode selector in `client/app/page.tsx` after the first number has been drawn for the loaded game (fetch state from `/api/game-state`).
-- [ ] **Story: Handle Partial Win State (GM):** In `client/app/page.tsx`, when managing a game where `gameState.partialWinOccurred` is true and `gameState.isOver` is false (fetched from `/api/game-state/:txid`):
-    - [ ] Display the `partialWinners`.
-    - [ ] Hide the "Draw Number" button.
-    - [ ] Show "Continue to Full Card" and "End Game Now" buttons.
-- [ ] **Story: Implement GM Continuation/End Controls:** In `client/app/page.tsx`:
-    - [ ] "Continue" button: Re-enable the "Draw Number" button. (May involve internal state change).
-    - [ ] "End Game" button: Call the new `/api/end-game/:txid` endpoint. Update UI to reflect game end.
-- [ ] **Story: Update Winner Display (GM View):** Modify the winner announcement logic in `client/app/page.tsx` to display winners clearly based on mode and state (`partialWinners`, `fullCardWinners`).
-- [ ] **Story: Display Correct Statistics (GM):** Ensure the statistics box in `client/app/page.tsx` displays the appropriate stats (line-based or full-card-based) fetched from `/api/game-state` depending on the game phase (`partialWinOccurred`).
-- [ ] **Story: Player Winner Display (client/app/play/[txid]/page.tsx):** Modify the player monitoring page to display winner information fetched from `/api/game-state/:txid`, correctly handling `partialWinOccurred`, `partialWinners`, `fullCardWinners`, and `isOver` based on the `gameMode`.
+- [x] **Story: Add Game Mode Selection (GM):** In `client/app/page.tsx`, when setting up a new game (after file upload, before calling `/api/check-transaction`), add radio buttons/selector for "Partial Win & Full Card" and "Full Card Win Only".
+- [x] **Story: Pass Game Mode on Init:** Modify the frontend logic in `client/app/page.tsx` that calls `/api/check-transaction` to include the selected `gameMode`.
+- [x] **Story: Disable Mode Selection:** Disable the game mode selector in `client/app/page.tsx` after the first number has been drawn for the loaded game (fetch state from `/api/game-state`).
+- [x] **Story: Handle Partial Win State (GM):** In `client/app/page.tsx`, when managing a game where `gameState.partialWinOccurred` is true and `gameState.isOver` is false (fetched from `/api/game-state/:txid`):
+    - [x] Display the `partialWinners`.
+    - [x] Hide the "Draw Number" button.
+    - [x] Show "Continue to Full Card" and "End Game Now" buttons.
+- [x] **Story: Implement GM Continuation/End Controls:** In `client/app/page.tsx`:
+    - [x] "Continue" button: Re-enable the "Draw Number" button. (May involve internal state change).
+    - [x] "End Game" button: Call the new `/api/end-game/:txid` endpoint. Update UI to reflect game end.
+- [x] **Story: Update Winner Display (GM View):** Modify the winner announcement logic in `client/app/page.tsx` to display winners clearly based on mode and state (`partialWinners`, `fullCardWinners`).
+- [x] **Story: Display Correct Statistics (GM):** Ensure the statistics box in `client/app/page.tsx` displays the appropriate stats (line-based or full-card-based) fetched from `/api/game-state` depending on the game phase (`partialWinOccurred`).
+- [x] **Story: Player Winner Display (client/app/play/[txid]/page.tsx):** Modify the player monitoring page to display winner information fetched from `/api/game-state/:txid`, correctly handling `partialWinOccurred`, `partialWinners`, `fullCardWinners`, and `isOver` based on the `gameMode`.
 
 ### 9. Testing: Expanded Coverage (@tests-tdd+bdd.mdc)
 - [ ] **Story: Backend Unit Tests:** Add tests for `checkFullCardWin`. Update tests for `utils.js` functions affected by renaming/logic changes.
