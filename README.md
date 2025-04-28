@@ -1,60 +1,56 @@
 # bitBingo
 
-A trustless, automated, Bitcoin-based raffle system that uses Bitcoin's blockchain to provide transparent and verifiable raffle drawings that cannot be manipulated.
+A trustless, automated, Bitcoin-based bingo system that uses Bitcoin's blockchain for transparent, verifiable, and manipulation-resistant game outcomes.
+
+## Architecture Overview
+
+- **Backend**: Node.js (Express), in-memory game state, deterministic bingo logic, IPFS (Pinata) for CSV storage, BlockCypher for Bitcoin data.
+- **Frontend**: React (Create React App) - migrating to Next.js, Bootstrap UI, communicates with backend via REST API.
+- **Game Logic**: All randomness is derived from the Bitcoin block hash (via BIP32 HD key derivation), ensuring provable fairness.
 
 ## How It Works
 
-1. **Upload Participants**: Upload a CSV file containing participant tickets
-2. **IPFS Storage**: The system uploads the CSV file to IPFS and converts the CID to hex format
-3. **External Transaction**: Create a Bitcoin transaction (in your own wallet) with the hex CID in an OP_RETURN output, and submit the transaction ID to the app
-4. **Transaction Monitoring**: The app monitors the Bitcoin transaction until it's confirmed in a block and retrieves the blockhash
-5. **Drawing Winners**: The specified number of winners are determined using BIP32 key derivation. The blockhash serves as the seed, and winners are selected based on calculations involving the derived public keys.
-6. **Verification**: Anyone can verify the winners by replicating the BIP32 derivation and calculations using the public blockhash and participant list.
+1. **Admin uploads CSV**: List of participants (one per line, header `name`).
+2. **CSV stored on IPFS**: The app uploads the CSV to IPFS (via Pinata) and returns a CID (hex-encoded).
+3. **Admin creates Bitcoin TX**: The CID (hex) is embedded in a Bitcoin transaction's OP_RETURN output (e.g., using Electrum).
+4. **Admin submits TXID**: The app monitors the transaction for confirmation.
+5. **Blockhash as randomness**: Once confirmed, the block hash is used as the seed for all game randomness (card generation, number draws).
+6. **Game link shared**: Players receive a link (with TXID) to join and view their cards.
+7. **Game proceeds**: Numbers are drawn deterministically; cards are marked; winners are announced automatically.
+8. **Anyone can verify**: All results are reproducible using public data (block hash, CSV, open-source logic).
 
-## Tips on creating the transaction on Electrum
- - Go to the **Send** tab
- - In the **Pay to** field, enter the following format:
-   ```
-   script(OP_RETURN <CID_hex_format>)
-   ```
-   Example:
-   ```
-   script(OP_RETURN 6261666b72656966753377663376717a347537756b747a65367465326c78623537656b777267336e67646a6c346b74676f6167356a667775646769)
-   ```
- - Click **Pay...**
- - Select an appropriate transaction fee (consider network congestion for timing)
- - Click **Sign** to authorize the transaction
- - Click **Broadcast** to send the transaction to the network
- - Copy the **Transaction ID** (txid) to the app for monitoring confirmation status
-    
-    Example:
-    ```
-    6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002
-    ```
+## Backend API Endpoints
+
+- `POST /api/check-transaction` — Initialize a game from a TXID and participant file (admin only).
+- `POST /api/draw/:txid` — Draw the next bingo number (Game Master only, requires token).
+- `POST /api/end-game/:txid` — Manually end a game (for partial win mode, GM only).
+- `POST /api/continue-game/:txid` — Continue after a partial win (GM only).
+- `GET /api/game-state/:txid` — Get current game state (drawn numbers, winners, etc.).
+- `GET /api/cards/:txid/:nickname` — Get all cards for a user in a game.
 
 ## Requirements
 
-- Node.js 14+ (16+ recommended)
-- npm 6+ (7+ recommended)
+- Node.js v20+
+- pnpm (preferred) or npm
 - Bitcoin wallet (for creating the transaction)
-- Internet connectivity to access the Bitcoin API
-- Pinata JWT API key for IPFS storage
+- Pinata JWT API key (for IPFS storage)
+- Internet connectivity
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/bitBingo.git
+git clone https://github.com/eddieoz/bitBingo.git
 cd bitBingo
 ```
 
-2. Install dependencies:
+2. Install dependencies (using pnpm):
 ```bash
-npm run install-all
+pnpm install
 ```
 
 3. Configure environment variables:
-Create a `.env` file in the server directory:
+Create a `.env` file in the `server/` directory:
 ```
 PORT=5000
 NODE_ENV=development
@@ -63,142 +59,64 @@ PINATA_JWT_KEY=your_pinata_jwt_key_here
 
 ## Usage
 
-1. Start the application:
+1. Start the backend:
 ```bash
-npm start
+cd server
+pnpm start
 ```
 
-2. Access the application at http://localhost:3000
+2. Start the frontend:
+```bash
+cd ../client
+pnpm start
+```
+
+3. Access the app at [http://localhost:3000](http://localhost:3000)
 
 ## Running with Docker
 
-Alternatively, you can run the application using Docker and Docker Compose.
-
-**Prerequisites:**
-- Docker installed
-- Docker Compose installed
-
-**Steps:**
-
-1.  **Configure Environment Variables:**
-    Ensure you have a `.env` file in the `server/` directory with your `PINATA_JWT_KEY`, as described in the Installation section. The Docker setup mounts the local directory, so this file will be used by the container.
-    ```
-    # server/.env
-    PORT=5000
-    NODE_ENV=development
-    PINATA_JWT_KEY=your_pinata_jwt_key_here
-    ```
-
-2.  **Build the Docker Image:**
-    ```bash
-    docker compose build
-    ```
-
-3.  **Run the Application:**
-    ```bash
-    docker compose up
-    ```
-    This command will start both the client and server services.
-
-4.  **Access the Application:**
-    - Client UI: [http://localhost:3000](http://localhost:3000)
-    - Server API (for client requests): [http://localhost:5000](http://localhost:5000)
+1. Ensure you have a `.env` file in `server/` as above.
+2. Build and run:
+```bash
+docker compose build
+docker compose up
+```
+- Client: [http://localhost:3000](http://localhost:3000)
+- Server: [http://localhost:5000](http://localhost:5000)
 
 ## CSV Format
 
-The CSV file should contain participant information with one ticket per line. The first line should be a header row.
-
-Example:
+CSV must have a header row `name` and one nickname per line:
 ```
 name
-John Doe
-Jane Smith
-Bob Johnson
+Alice
+Bob
+Charlie
 ```
 
 ## Verification
 
-The raffle's results are verifiable using the confirmed transaction's block hash and the participant list. The process leverages BIP32 Hierarchical Deterministic Wallets, using the block hash as the seed.
+- All randomness (card generation, number draws) is derived from the block hash of the confirmed Bitcoin transaction.
+- Cards: For each participant, derive a BIP32 public key using the block hash (SHA-256) as the seed and path `m/44'/0'/0'/0/{lineIndex}`. The card grid is generated from the public key (see `server/utils.js`).
+- Drawn numbers: For each draw, derive a public key at the next index, take the last 4 bytes, convert to an integer, and map to 1–75.
+- Anyone can verify results using the public block hash, the original CSV, and the open-source logic (see `docs/verification.md`).
 
-1.  **Obtain Data**:
-    *   Get the **Block Hash** of the block containing the raffle transaction (this can be found on any Bitcoin block explorer using the transaction ID).
-    *   Get the **Participant List** (CSV file) used for the raffle. Note the total **Participant Count**.
-    *   Note the **Number of Winners** drawn.
+## Testing
 
-2.  **BIP32 Derivation**:
-    *   Use the **Block Hash** as the **BIP39 Seed** (in hex format).
-    *   Derive keys using the **BIP44 path** structure: `m/44'/0'/0'/0/i`, where `i` starts at `0` and increments for each winner to be drawn.
-    *   For each derivation path, obtain the corresponding **Public Key**.
-
-3.  **Calculate Winner Index**:
-    *   For each derived **Public Key**, take the **last 8 characters** of its hexadecimal representation.
-    *   Convert these 8 characters to an integer.
-    *   Calculate the winner index using the formula:
-        ```winner_index = int(publicKey[-8:], 16) mod participant_count```
-    *   The participant at this `winner_index` (0-based) in the list is the potential winner for this derivation step.
-
-4.  **Handle Duplicates**:
-    *   If a participant is selected more than once, the derivation index `i` is incremented, and a new public key is derived until a unique winner is found. This ensures each participant can only win once per raffle.
-
-5.  **Verify with Ian Coleman Tool**:
-    *   You can cross-reference the derivation process using the [Ian Coleman BIP39 tool](https://iancoleman.io/bip39/).
-    *   Paste the **Block Hash** (hex) into the "**BIP39 Seed**" field.
-    *   Select the "**BIP44**" tab for the derivation path.
-    *   Under "**Derived Addresses**", observe the public keys generated for paths `m/44'/0'/0'/0/0`, `m/44'/0'/0'/0/1`, etc.
-    *   Compare these public keys and perform the calculation described in step 3 to verify each winner selection.
-
-## Development
-
-- Server: Express.js with Node.js
-- Client: React with Bootstrap
-- Blockchain: Bitcoin Mainnet/Testnet (configurable)
-- Storage: IPFS distributed file system via Pinata
-- APIs: BlockCypher for blockchain data
+- **Backend**: From `server/`, run:
+  ```bash
+  pnpm test
+  ```
+- **Frontend**: From `client/`, run:
+  ```bash
+  pnpm test
+  ```
 
 ## Security Considerations
 
-- Your Bitcoin private keys stay in your wallet - the app never handles them
-- Consider privacy implications when storing participant data
-- Ensure CSV files are properly formatted to avoid errors
-- The app uses real blockchain data for drawing winners, not simulated values
-
-## Deployment
-
-To deploy bitBingo to a demo or production environment, consider the following:
-
-1.  **Environment Variables**: Configure the necessary environment variables in your deployment environment. These are typically set through the hosting provider's interface.
-    *   `server/.env`:
-        *   `NODE_ENV`: Set to `production` for optimized performance and security.
-        *   `PINATA_JWT_KEY`: **Required**. Your secret JWT key from Pinata for IPFS uploads.
-        *   `PORT`: Your hosting provider might set this automatically. The server will use `process.env.PORT` if available, otherwise defaulting to `5000`.
-        *   `BLOCKCYPHER_NETWORK`: (Optional) Set to `main` or `testnet`. Defaults to `main`.
-        *   `BLOCKCYPHER_API_BASE_URL`: (Optional) Override the default BlockCypher API endpoint (`https://api.blockcypher.com/v1`).
-        *   `PINATA_PUBLIC_GATEWAY_BASE`: (Optional) Set the base URL for public IPFS links generated (e.g., `https://ipfs.io/ipfs`). Defaults to `https://gateway.pinata.cloud/ipfs`.
-    *   Client Build:
-        *   `REACT_APP_API_URL`: **Required**. The full URL to your deployed backend API (e.g., `https://your-demo-site.com/api`). This needs to be available during the *client build process*.
-
-2.  **Build Client**: The React frontend needs to be built into static assets.
-    ```bash
-    cd client
-    # Set the API URL environment variable for the build
-    REACT_APP_API_URL=https://your-backend-url/api npm run build
-    cd ..
-    ```
-    The static files will be in `client/build/`.
-
-3.  **Server Deployment**: Deploy the `server/` directory.
-    *   Ensure only production dependencies are installed (`npm ci --only=production` inside the `server` directory).
-    *   Start the server using `node index.js`.
-    *   Make sure the server can access the configured `PORT`.
-
-4.  **Serving Client Assets**: The static client assets (`client/build/`) need to be served.
-    *   Option A: Configure the Node.js server (in `server/index.js`) to serve static files from the `client/build` directory.
-    *   Option B: Use a reverse proxy (like Nginx or your hosting platform's equivalent) to serve the static files and route API requests (e.g., `/api/*`) to the Node.js backend.
-
-5.  **Dockerfile for Production**: If using Docker, adapt the `Dockerfile` and `docker-compose.yml` for production.
-    *   Use a multi-stage build: Stage 1 builds the client, Stage 2 copies server code, installs *production* dependencies, copies client build artifacts, and sets the `CMD` to `node index.js`.
-    *   Do not mount local volumes for code in production.
-    *   Ensure environment variables are passed correctly to the container.
+- Private keys are never handled by the app.
+- All randomness is public and verifiable.
+- CSVs should not contain sensitive data.
 
 ## License
 

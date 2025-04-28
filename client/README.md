@@ -1,70 +1,65 @@
-# Getting Started with Create React App
+# bitBingo Frontend (React)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the frontend for [bitBingo](https://bitBingo.sats4.life), a trustless, Bitcoin-powered bingo system.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- Upload participant CSV (admin)
+- Submit Bitcoin transaction ID (admin)
+- Player login with nickname (from CSV)
+- View assigned bingo cards
+- Live game state: drawn numbers, card marking, win detection
+- Game Master controls (draw, end/continue game in special modes)
+- Responsive, Bootstrap-based UI
 
-### `npm start`
+## Getting Started
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Prerequisites
+- Node.js v20+
+- pnpm (preferred) or npm
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Install dependencies
+```bash
+pnpm install
+```
 
-### `npm test`
+### Environment Variables
+Create a `.env` file in the `client/` directory (or set env vars before build):
+```
+REACT_APP_API_URL=http://localhost:5000
+```
+Set this to your backend API URL for local/dev/prod as needed.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Run the app
+```bash
+pnpm start
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### `npm run build`
+### Build for production
+```bash
+pnpm build
+```
+The static files will be in `build/`.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Run tests
+```bash
+pnpm test
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Project Structure
+- `src/components/` — UI components (login, cards, game state, admin tools)
+- `src/types/` — TypeScript interfaces for card/user/game data
+- `src/lib/` — Utility functions
+- `public/` — Static assets
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Main UI Flow
+- **Admin**: Upload CSV → get CID → create Bitcoin TX → submit TXID → share game link
+- **Player**: Open game link → enter nickname → view cards → watch game progress
 
-### `npm run eject`
+## Notes
+- All game logic is deterministic and verifiable (see backend and docs).
+- The frontend only consumes backend outcomes; all business rules are enforced server-side.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## License
+MIT
