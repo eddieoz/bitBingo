@@ -465,21 +465,19 @@ function checkLineWin(grid, drawnNumbersSet) {
   const N = grid.N;
   const G = grid.G;
   const O = grid.O;
-
-  const drawnNumbers = Array.from(drawnNumbersSet);
+  const columns = [B, I, N, G, O]; // Array of column arrays
 
   // Check rows
   for (let i = 0; i < 5; i++) {
     const row = [B[i], I[i], N[i], G[i], O[i]];
-    if (row.every(num => drawnNumbers.includes(num) || num === null)) {
+    if (row.every(num => num === null || drawnNumbersSet.has(num))) {
       return row;
     }
   }
 
   // Check columns
-  for (let i = 0; i < 5; i++) {
-    const column = [B[i], I[i], N[i], G[i], O[i]];
-    if (column.every(num => drawnNumbers.includes(num) || num === null)) {
+  for (const column of columns) {
+    if (column.every(num => num === null || drawnNumbersSet.has(num))) {
       return column;
     }
   }
@@ -487,8 +485,11 @@ function checkLineWin(grid, drawnNumbersSet) {
   // Check diagonals
   const diag1 = [B[0], I[1], N[2], G[3], O[4]];
   const diag2 = [B[4], I[3], N[2], G[1], O[0]];
-  if (diag1.every(num => drawnNumbers.includes(num) || num === null) || diag2.every(num => drawnNumbers.includes(num) || num === null)) {
-    return diag1.length > diag2.length ? diag1 : diag2;
+  if (diag1.every(num => num === null || drawnNumbersSet.has(num))) {
+    return diag1;
+  }
+  if (diag2.every(num => num === null || drawnNumbersSet.has(num))) {
+    return diag2;
   }
 
   return null; // No win found

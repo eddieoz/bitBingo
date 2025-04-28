@@ -70,9 +70,9 @@ export default function AdminHomePage() { // Renamed back to default export
   const [partialWinners, setPartialWinners] = useState<WinnerInfo[] | null>(null);
   const [fullCardWinners, setFullCardWinners] = useState<WinnerInfo[] | null>(null);
   // --- End partial win state ---
-  // --- NEW: State for continuing after partial win ---
-  const [allowDrawingAfterPartialWin, setAllowDrawingAfterPartialWin] = useState<boolean>(false);
-  // --- End continuation state ---
+  // State for continueAfterPartialWin fetched from backend
+  const [continueAfterPartialWin, setContinueAfterPartialWin] = useState<boolean>(false);
+
   // === Restore QR code state ===
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null); // State for Data URL
@@ -138,7 +138,8 @@ export default function AdminHomePage() { // Renamed back to default export
           gameMode: newGameMode, // We don't have state for this yet, maybe add later if needed
           partialWinOccurred: newPartialWinOccurred,
           partialWinners: newPartialWinners,
-          fullCardWinners: newFullCardWinners 
+          fullCardWinners: newFullCardWinners,
+          continueAfterPartialWin: newContinueAfterPartialWin // <-- Fetch new field
       } = response.data;
 
       // Update state with all fetched fields
@@ -148,6 +149,7 @@ export default function AdminHomePage() { // Renamed back to default export
       setPartialWinOccurred(newPartialWinOccurred || false);
       setPartialWinners(newPartialWinners || null);
       setFullCardWinners(newFullCardWinners || null);
+      setContinueAfterPartialWin(newContinueAfterPartialWin || false); // <-- Update state
       
       // Combine winners for display? Or keep separate?
       // Let's keep the old `winners` state updated with *final* winners for now
@@ -189,7 +191,7 @@ export default function AdminHomePage() { // Renamed back to default export
       setPartialWinOccurred(false);
       setPartialWinners(null);
       setFullCardWinners(null);
-      setAllowDrawingAfterPartialWin(false); // <-- Reset continuation state
+      setContinueAfterPartialWin(false); // <-- Reset backend-driven state
     }
   }, [stopPolling, gmToken]);
 
@@ -217,7 +219,7 @@ export default function AdminHomePage() { // Renamed back to default export
       setPartialWinOccurred(false);
       setPartialWinners(null);
       setFullCardWinners(null);
-      setAllowDrawingAfterPartialWin(false); // <-- Reset continuation state
+      setContinueAfterPartialWin(false); // <-- Reset backend-driven state
     }
     // Cleanup function to stop polling when component unmounts or txId changes
     return () => stopPolling(); 
@@ -313,19 +315,35 @@ export default function AdminHomePage() { // Renamed back to default export
         );
         console.log('Draw successful:', response.data);
         // Immediately fetch game state ONLY if the draw didn't end the game
-        if (!response.data.isOver) {
-             fetchCurrentGameState(raffleState.txId); 
+        const gameEnded = response.data.isOver;
+        const partialWinJustOccurred = response.data.partialWinOccurred && !partialWinOccurred; // Check against current state
+
+        if (gameEnded || partialWinJustOccurred) {
+           console.log('[Draw Handler] Game ended or partial win occurred. Updating local state from draw response...');
+           const newStats = response.data.statistics; // Get stats from draw response
+
+           if (gameEnded) {
+               console.log('[Draw Handler] Game Ended. Updating local state.');
+               setDrawnNumbers(prev => [...prev, response.data.drawnNumber]);
+               setIsGameOver(true);
+               setWinners(response.data.fullCardWinners || response.data.partialWinners || []); 
+               setPartialWinOccurred(response.data.partialWinOccurred); 
+               setPartialWinners(response.data.partialWinners);
+               setFullCardWinners(response.data.fullCardWinners);
+               if (newStats) setStatistics(newStats); // Update stats immediately
+               stopPolling(); // Stop polling now, we have final state
+           } else if (partialWinJustOccurred) {
+               console.log('[Draw Handler] Partial win occurred. Updating local state.');
+               setDrawnNumbers(prev => [...prev, response.data.drawnNumber]);
+               setPartialWinOccurred(true);
+               setPartialWinners(response.data.partialWinners || []);
+               if (newStats) setStatistics(newStats); // Update stats immediately
+               // Don't stop polling here, game continues
+           }
         } else {
-            // If draw caused game over, update state directly from response
-            // to avoid waiting for the next poll cycle
-            console.log('Draw ended the game. Updating state directly.');
-            setDrawnNumbers(prev => [...prev, response.data.drawnNumber]); // Add the last drawn number
-            setIsGameOver(true);
-            setWinners(response.data.winners || []);
-            // Fetch stats one last time if needed, or rely on previous poll?
-            // Let's fetch it to be sure it reflects the final state
-            fetchCurrentGameState(raffleState.txId); 
-            stopPolling(); // Ensure polling stops
+            // If nothing significant changed state-wise (no win, no end), just fetch normally
+            console.log('[Draw Handler] No win/end this draw, fetching normal state...');
+            fetchCurrentGameState(raffleState.txId);
         }
         
       } catch (error: any) {
@@ -385,6 +403,38 @@ export default function AdminHomePage() { // Renamed back to default export
     }
   };
   // --- End End Game Handler ---
+
+  // --- NEW: Handler for Continue Game button ---
+  const handleContinueGame = async () => {
+    if (!raffleState.txId || !gmToken) {
+      console.error('Cannot continue game: Missing txId or GM Token.');
+      setPollingError('Cannot continue game: Missing txId or GM Token.');
+      return;
+    }
+    console.log(`[Continue Game Button] Attempting to continue game ${raffleState.txId}`);
+    setPollingError(null);
+    // Add loading state?
+
+    try {
+      const headers = { Authorization: `Bearer ${gmToken}` };
+      await axios.post(`${API_URL}/api/continue-game/${raffleState.txId}`, null, { headers });
+      console.log('Continue game successful.');
+      // Backend state updated. Fetch latest state to update UI and stats.
+      fetchCurrentGameState(raffleState.txId); 
+    } catch (error: any) {
+      console.error('Error continuing game:', error);
+      let errorMsg = 'Failed to continue game';
+      if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      setPollingError(errorMsg);
+    } finally {
+      // Stop loading state
+    }
+  };
+  // --- End Continue Game Handler ---
 
   const handleReset = async () => {
      // --- MOVE STATE RESET BEFORE API CALL ---
@@ -662,8 +712,8 @@ export default function AdminHomePage() { // Renamed back to default export
                           {/* --- Game Controls --- */} 
                           {raffleState.txConfirmed && !isGameOver && (
                               <> 
-                                  {/* Show Draw Button ONLY if partial win hasn't occurred OR if GM decides to continue */}
-                                  {(!partialWinOccurred || allowDrawingAfterPartialWin) && (
+                                  {/* Show Draw Button if game hasn't had a partial win OR if GM has confirmed continuation */}
+                                  {(!partialWinOccurred || (partialWinOccurred && continueAfterPartialWin)) && (
                                       <DrawNumberButton 
                                           onDraw={handleDrawNumber} 
                                           isDisabled={isLoadingDraw} 
@@ -671,12 +721,13 @@ export default function AdminHomePage() { // Renamed back to default export
                                       />
                                   )}
 
-                                  {/* Show Continue/End buttons ONLY if partial win HAS occurred AND drawing is not currently allowed */}
-                                  {partialWinOccurred && !allowDrawingAfterPartialWin && (
+                                  {/* Show Continue/End buttons ONLY if partial win HAS occurred AND GM has NOT confirmed continuation */} 
+                                  {partialWinOccurred && !continueAfterPartialWin && (
                                       <div className="mt-3">
                                           <h5>Partial Win Options:</h5>
                                           <ButtonGroup>
-                                              <Button variant="success" onClick={() => setAllowDrawingAfterPartialWin(true)}>
+                                              {/* Call new handler */}
+                                              <Button variant="success" onClick={handleContinueGame}>
                                                   Continue to Full Card
                                               </Button>
                                               <Button variant="danger" onClick={handleEndGame}>
