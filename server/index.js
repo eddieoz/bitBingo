@@ -458,8 +458,14 @@ function handleDraw(req, res, utilsOverride) {
   const finalStats = calculateStatistics(gameState);
 
   // --- Update Response Payload --- 
+  let message = 'Number drawn successfully!';
+  if (hasFullCardWin) {
+    message = 'Full card win! Winner(s) detected.';
+  } else if (hasLineWin) {
+    message = 'Partial win! Winner(s) detected.';
+  }
   const responsePayload = {
-    message: 'Number drawn successfully!',
+    message,
     drawnNumber: drawnNumber,
     totalDrawn: gameState.drawnNumbers.length,
     nextDerivationIndex: gameState.nextDerivationIndex,

@@ -122,3 +122,5 @@ Refactored the Game Mode Selection and Draw Button tests in client/app/page.test
 Refactored the QR Code Button & Modal test in client/app/page.test.tsx to use an isolated, minimal test-only component, ensuring all Admin/GM page tests now pass robustly.
 
 Added full integration test coverage for /api/check-transaction (handleCheckTransaction) in server/tests/integration.test.js: Game Already Exists, Missing Input, TX Fetch Error, and IPFS Fetch Error, as required by Story 6B.
+
+Appended a detailed progress update to docs/tasks.md summarizing frontend and backend structure, test coverage, blocked items, and next steps, based on a full codebase audit.

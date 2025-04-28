@@ -9,6 +9,9 @@ Always consider the following data for testing:
 - Valid Transaction ID: 6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002
 - Valid CID: bafkreifu3wf3vqz4u7uktze6te2lxb57ekwrg3ngdjl4ktgoag5jfwudgi
 - Valid Block hash: 000000000000000000006f9367863b3fa7ecbc605c8215ef9e92386cbec8255f
+- Valid Partial card winner: 10	22	39	46	64 7	23	42	49	71 11	20	FREE	59	61 4	19	38	50	74  8	26	35	58	65
+- Valid Full card winner: 6	18	38	51	67 7	27	44	58	74 15	16	FREE	46	62 5	24	40	52	64 3	26	36	49	66
+- Valid drawn numbers: I27 B15 O61 I28 I29 B10 N45 O74 O65 G51 N38 N43 B11 G55 N33 O68 N37 N34 B1 O71 N31 G56 B14 O67 N35 G48 G47 B3 B7 O66 O64 I30 I19 I23 G58 B4 I24 I26 G46 G60 I20 O72 N42 I25 O63 G54 B9 G53 N40 N44 N39 B5 N41 B8 G57 O70 O69 O75 N32 B6 G50 I18 G49 N36 G52 G59 I21 O62 I16 
 - Valid derivations:
     - m/44'/0'/0'/0/0       0221f19d6298f375ef4b2f829fbe479567d2a186aabef4f7790d7a73d32ff68145
     - m/44'/0'/0'/0/1		024942fcbb9b222a30c62e121438eba0153bfef15aa285ed3693d025523ef8897a	

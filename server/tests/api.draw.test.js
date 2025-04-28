@@ -210,6 +210,176 @@ describe('POST /api/draw/:txid', () => {
         expect(updatedState.nextDerivationIndex).toBe(2);
     });
 
+    it('should handle full card win (fullCardOnly mode)', async () => {
+        // Set up a game state where the next draw will win
+        testGameStates.set(testTxid, {
+            ...testGameStates.get(testTxid),
+            drawnNumbers: Array.from({ length: 24 }, (_, i) => i + 1), // 24 numbers drawn
+            nextDerivationIndex: 24,
+            isOver: false,
+            gameMode: 'fullCardOnly',
+            fullCardWinners: null,
+            cards: [{ cardId: 'card-alice', username: 'Alice', grid: { B: [], I: [], N: [null], G: [], O: [] } }]
+        });
+        vi.mocked(utils.derivePublicKey).mockReturnValue(Buffer.from('mock-pub-key'));
+        vi.mocked(utils.checkFullCardWin).mockReturnValue(true);
+        vi.mocked(utils.checkLineWin).mockReturnValue(null);
+
+        const response = await request(server)
+            .post(`/api/draw/${testTxid}`)
+            .set('Authorization', `Bearer ${mockGmToken}`)
+            .send();
+
+        expect(response.status).toBe(200);
+        expect(response.body.isOver).toBe(true);
+        expect(response.body.fullCardWinners).not.toBeNull();
+        expect(Array.isArray(response.body.fullCardWinners)).toBe(true);
+        expect(response.body.fullCardWinners.length).toBeGreaterThan(0);
+        expect(response.body.message).toMatch(/win|winner/i);
+        // State should be updated
+        const updatedState = testGameStates.get(testTxid);
+        expect(updatedState.isOver).toBe(true);
+        expect(updatedState.fullCardWinners).not.toBeNull();
+    });
+
+    it('should detect a real partial win (O column) for Grace Lee when the 31st number is drawn', () => {
+        // Grace Lee's real card grid (from screenshot)
+        const graceGrid = {
+            B: [10, 7, 11, 4, 8],
+            I: [22, 23, 20, 19, 26],
+            N: [39, 42, null, 38, 35],
+            G: [46, 49, 59, 50, 58],
+            O: [64, 71, 61, 74, 65]
+        };
+        // Drawn numbers just before the win (missing 65)
+        const drawnNumbers = [27, 15, 61, 28, 29, 10, 45, 74, 51, 67, 56, 14, 67, 35, 48, 7, 66, 64, 71, 11, 20, 59, 4, 19, 38, 50, 8, 26, 58];
+        // The 31st number to be drawn is 65 (completing the O column)
+        const nextNumber = 65;
+        // Set up the game state
+        testGameStates.set('test-txid-grace', {
+            txid: 'test-txid-grace',
+            status: 'initialized',
+            blockHash: '000000000000000000006f9367863b3fa7ecbc605c8215ef9e92386cbec8255f',
+            participants: [{ name: 'Grace Lee', ticket: '8' }],
+            baseSeed: '000000000000000000006f9367863b3fa7ecbc605c8215ef9e92386cbec8255f',
+            drawnNumbers: drawnNumbers.slice(),
+            drawSequence: [],
+            nextDerivationIndex: 30,
+            gmToken: 'gm-token-grace',
+            lastDrawTime: null,
+            creationTime: Date.now(),
+            isOver: false,
+            gameMode: 'partialAndFull',
+            partialWinOccurred: false,
+            partialWinners: null,
+            fullCardWinners: null,
+            continueAfterPartialWin: false,
+            winners: [],
+            cards: [{ cardId: 'card-grace', username: 'Grace Lee', grid: graceGrid }]
+        });
+        // Mock utils to return the next number as 65 and checkLineWin to return the O column when 65 is present
+        const mockUtils = {
+            ...utils,
+            derivePublicKey: vi.fn(() => Buffer.from('mock-pub-key')),
+            hashPublicKeyToNumber: vi.fn(() => nextNumber),
+            checkLineWin: (grid, drawnSet) => {
+                // Only return a win if all O column numbers are in the set
+                const oCol = grid.O;
+                if (oCol.every(num => drawnSet.has(num))) {
+                    return oCol;
+                }
+                return null;
+            },
+            checkFullCardWin: vi.fn(() => false)
+        };
+        // Mock req/res
+        const req = {
+            params: { txid: 'test-txid-grace' },
+            headers: { authorization: 'Bearer gm-token-grace' }
+        };
+        let statusCode, jsonBody;
+        const res = {
+            status(code) { statusCode = code; return this; },
+            json(body) { jsonBody = body; return this; }
+        };
+        handleDraw(req, res, mockUtils);
+        expect(statusCode).toBe(200);
+        expect(jsonBody.partialWinOccurred).toBe(true);
+        expect(jsonBody.partialWinners).not.toBeNull();
+        expect(Array.isArray(jsonBody.partialWinners)).toBe(true);
+        expect(jsonBody.partialWinners.length).toBeGreaterThan(0);
+        expect(jsonBody.partialWinners[0].username).toBe('Grace Lee');
+        expect(jsonBody.partialWinners[0].sequence).toEqual([64, 71, 61, 74, 65]);
+        expect(jsonBody.message).toMatch(/partial win|winner/i);
+        // State should be updated
+        const updatedState = testGameStates.get('test-txid-grace');
+        expect(updatedState.partialWinOccurred).toBe(true);
+        expect(updatedState.partialWinners).not.toBeNull();
+    });
+
+    it('should return 401 if GM token is missing', async () => {
+        const response = await request(server)
+            .post(`/api/draw/${testTxid}`)
+            .send(); // No Authorization header
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ message: 'Authorization token required for drawing numbers.' });
+    });
+
+    it('should return 403 if GM token is invalid', async () => {
+        const response = await request(server)
+            .post(`/api/draw/${testTxid}`)
+            .set('Authorization', 'Bearer invalid-token')
+            .send();
+        expect(response.status).toBe(403);
+        expect(response.body).toEqual({ message: 'Invalid authorization token.' });
+    });
+
+    it('should return 500 if an error occurs during number derivation', () => {
+        // Set up a minimal valid game state
+        testGameStates.set('test-txid-derivation-error', {
+            txid: 'test-txid-derivation-error',
+            status: 'initialized',
+            blockHash: 'blockhash',
+            participants: [{ name: 'Alice', ticket: '1' }],
+            baseSeed: 'blockhash',
+            drawnNumbers: [],
+            drawSequence: [],
+            nextDerivationIndex: 0,
+            gmToken: 'gm-token-derivation',
+            lastDrawTime: null,
+            creationTime: Date.now(),
+            isOver: false,
+            gameMode: 'fullCardOnly',
+            partialWinOccurred: false,
+            partialWinners: null,
+            fullCardWinners: null,
+            continueAfterPartialWin: false,
+            winners: [],
+            cards: [{ cardId: 'card-alice', username: 'Alice', grid: { B: [1,2,3,4,5], I: [6,7,8,9,10], N: [11,12,null,14,15], G: [16,17,18,19,20], O: [21,22,23,24,25] } }]
+        });
+        // Mock utils to throw on derivePublicKey
+        const mockUtils = {
+            ...utils,
+            derivePublicKey: () => { throw new Error('Derivation failed!'); },
+            hashPublicKeyToNumber: vi.fn(),
+            checkLineWin: vi.fn(),
+            checkFullCardWin: vi.fn()
+        };
+        // Mock req/res
+        const req = {
+            params: { txid: 'test-txid-derivation-error' },
+            headers: { authorization: 'Bearer gm-token-derivation' }
+        };
+        let statusCode, jsonBody;
+        const res = {
+            status(code) { statusCode = code; return this; },
+            json(body) { jsonBody = body; return this; }
+        };
+        handleDraw(req, res, mockUtils);
+        expect(statusCode).toBe(500);
+        expect(jsonBody).toEqual({ message: expect.stringContaining('Failed to derive number: Derivation failed!') });
+    });
+
     // --- TODO: Add/Unskip tests for other stories ---
     // it('should return 400 if game is already over', async () => { ... });
     // it('should return 400 if all numbers are already drawn', async () => { ... });
