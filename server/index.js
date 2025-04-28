@@ -143,76 +143,8 @@ function calculateStatistics(gameState) {
   return statistics;
 }
 
-// ======================================================
-// ==                API Endpoints                     ==
-// ======================================================
-
-// --- 1. Upload Participant List (MODIFIED) --- 
-app.post('/api/upload-participants', upload.single('participantFile'), async (req, res) => { // Made async
-  if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded.' });
-  }
-  
-  const filePath = req.file.path;
-  const originalFilename = req.file.originalname; // Use original name for context
-  const uniqueFilename = req.file.filename; // The saved unique name
-  console.log(`[Upload] File received: ${uniqueFilename}, Original: ${originalFilename}, Path: ${filePath}`);
-  
-  try {
-      // 1. Count Participants
-      console.log(`[Upload] Parsing CSV: ${filePath}`);
-      const participants = await csvtojson().fromFile(filePath);
-      const participantCount = participants.length;
-      if (participantCount === 0) {
-        // Clean up the invalid file
-        fs.unlinkSync(filePath);
-        console.warn(`[Upload] Invalid or empty CSV file uploaded: ${uniqueFilename}`);
-        return res.status(400).json({ message: 'CSV file is empty or invalid.' });
-      }
-      console.log(`[Upload] Found ${participantCount} participants.`);
-
-      // 2. Calculate Hex CID (SHA256 hash of the file content)
-      const fileBuffer = fs.readFileSync(filePath);
-      const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-      console.log(`[Upload] Calculated SHA256 Hex CID: ${fileHash}`);
-
-      // 3. Upload to IPFS via Pinata
-      console.log(`[Upload] Uploading ${uniqueFilename} to Pinata...`);
-      const ipfsCid = await uploadToPinata(filePath, uniqueFilename); // Use unique name for Pinata
-      console.log(`[Upload] IPFS CID received: ${ipfsCid}`);
-
-      // 4. Store file info (optional, as check-transaction uses OP_RETURN now)
-      // uploadedFiles.set(uniqueFilename, { filePath, fileHash, ipfsCid }); // Store more info if needed
-      // For now, just store path keyed by unique filename, needed by check-transaction? -> No, check-tx uses op_return!
-      // Let's keep the simple path storage for now, though it might become redundant if check-tx works fully
-      uploadedFiles.set(uniqueFilename, filePath); 
-
-      // 5. Send Response
-      res.status(200).json({ 
-          message: 'File uploaded successfully!', 
-          filename: uniqueFilename, // Return the unique filename used on server
-          hexCid: fileHash,         // <-- ADDED
-          ipfsCid: ipfsCid,         // <-- ADDED
-          participantCount: participantCount // <-- ADDED
-      });
-
-  } catch (error) {
-      console.error(`[Upload] Error processing file ${uniqueFilename}:`, error);
-      // Clean up uploaded file on error
-      if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-      }
-      // Remove from map if it was added
-      uploadedFiles.delete(uniqueFilename);
-
-      res.status(500).json({ 
-          message: `Failed to process file: ${error.message}`
-      });
-  }
-});
-
-// --- 2. Check Transaction & Initialize Game --- 
-app.post('/api/check-transaction', async (req, res) => {
+// --- Exported Handler Function for Check Transaction ---
+export async function handleCheckTransaction(req, res) {
   const { txid, participantFilename, gameMode } = req.body;
   console.log(`[Check TX] Received request for TXID: ${txid}, Filename: ${participantFilename}, Mode: ${gameMode}`);
 
@@ -231,10 +163,9 @@ app.post('/api/check-transaction', async (req, res) => {
   // --- End Game Mode Validation ---
 
   // Revert to direct fs.existsSync check
-  const uploadsDir = path.join(__dirname, 'uploads');
   // IMPORTANT: Use path.basename to prevent path traversal vulnerabilities
   const safeFilename = path.basename(participantFilename); 
-  const participantFilePath = path.join(uploadsDir, safeFilename);
+  const participantFilePath = path.join(UPLOADS_DIR, safeFilename); // Use consistent UPLOADS_DIR
 
   if (!fs.existsSync(participantFilePath)) {
     console.error(`[Check TX] Participant file path not found or invalid: ${participantFilePath}`);
@@ -281,16 +212,16 @@ app.post('/api/check-transaction', async (req, res) => {
     console.log(`[Check TX] Generating cards using base seed (blockhash): ${baseSeed}`);
     const allCards = utils.generateAllCards(participants, baseSeed);
     
-    // Clean up uploaded file after use
-    const filePathToDelete = path.join(UPLOADS_DIR, path.basename(participantFilename)); 
-    try {
-        await fs.promises.unlink(filePathToDelete);
-        console.log(`[Check TX] Successfully deleted uploaded file: ${filePathToDelete}`);
-    } catch (unlinkError) {
-        console.error(`[Check TX] Error deleting participant file ${filePathToDelete}:`, unlinkError);
-        // Decide if this should be a fatal error for the request. 
-        // For now, we'll log it but proceed as the game state is initialized.
-    }
+    // Clean up uploaded file after use - MOVED TO END AFTER SUCCESSFUL INIT
+    // const filePathToDelete = path.join(UPLOADS_DIR, path.basename(participantFilename)); 
+    // try {
+    //     await fs.promises.unlink(filePathToDelete);
+    //     console.log(`[Check TX] Successfully deleted uploaded file: ${filePathToDelete}`);
+    // } catch (unlinkError) {
+    //     console.error(`[Check TX] Error deleting participant file ${filePathToDelete}:`, unlinkError);
+    //     // Decide if this should be a fatal error for the request. 
+    //     // For now, we'll log it but proceed as the game state is initialized.
+    // }
 
     // --- Generate GM Token during initialization --- 
     const initialGmToken = crypto.randomBytes(16).toString('hex');
@@ -329,7 +260,7 @@ app.post('/api/check-transaction', async (req, res) => {
         gmToken: initialGmToken // Include the new token
     });
 
-    // Delete the uploaded file using the *validated* path
+    // Delete the uploaded file using the *validated* path AFTER successful response
     try {
         await fs.promises.unlink(participantFilePath); // Use the path checked by existsSync
         console.log(`[Check TX] Successfully deleted uploaded file: ${participantFilePath}`);
@@ -361,10 +292,14 @@ app.post('/api/check-transaction', async (req, res) => {
         message: `Failed to process transaction: ${error.message}`
     });
   }
-});
+}
+
+// --- 2. Check Transaction & Initialize Game --- 
+app.post('/api/check-transaction', handleCheckTransaction); // Use the extracted handler
 
 // --- 3. Draw Next Number (GM Only) --- 
-app.post('/api/draw/:txid', (req, res) => {
+function handleDraw(req, res, utilsOverride) {
+  const utilsToUse = utilsOverride || utils;
   const { txid } = req.params;
   const gameState = gameStates.get(txid);
 
@@ -419,9 +354,9 @@ app.post('/api/draw/:txid', (req, res) => {
   do {
       try {
           // Derive the public key using the NEXT index
-          derivedPublicKey = utils.derivePublicKey(seed, index + attempts);
+          derivedPublicKey = utilsToUse.derivePublicKey(seed, index + attempts);
           // Hash the public key to get a number (1-75)
-          drawnNumber = utils.hashPublicKeyToNumber(derivedPublicKey);
+          drawnNumber = utilsToUse.hashPublicKeyToNumber(derivedPublicKey);
 
           if (gameState.drawnNumbers.includes(drawnNumber)) {
              console.log(`[Draw] Number ${drawnNumber} (from index ${index + attempts}) already drawn, retrying...`);
@@ -458,7 +393,7 @@ app.post('/api/draw/:txid', (req, res) => {
     currentFullCardWinners = []; // <-- Reset before checking
     if (drawnNumbersSet.size >= 24) { // Min numbers for full card win
       for (const card of gameState.cards) {
-        if (utils.checkFullCardWin(card.grid, drawnNumbersSet)) {
+        if (utilsToUse.checkFullCardWin(card.grid, drawnNumbersSet)) {
           hasFullCardWin = true;
           currentFullCardWinners.push({ 
               username: card.username, 
@@ -479,7 +414,7 @@ app.post('/api/draw/:txid', (req, res) => {
     if (!gameState.partialWinOccurred && drawnNumbersSet.size >= 5) {
       currentLineWinners = []; // <-- Reset before checking
       for (const card of gameState.cards) {
-        const winningSequence = utils.checkLineWin(card.grid, drawnNumbersSet);
+        const winningSequence = utilsToUse.checkLineWin(card.grid, drawnNumbersSet);
         if (winningSequence) {
           hasLineWin = true;
           currentLineWinners.push({ 
@@ -501,7 +436,7 @@ app.post('/api/draw/:txid', (req, res) => {
     if (gameState.partialWinOccurred && drawnNumbersSet.size >= 24) {
       currentFullCardWinners = []; // <-- Reset before checking
       for (const card of gameState.cards) {
-        if (utils.checkFullCardWin(card.grid, drawnNumbersSet)) {
+        if (utilsToUse.checkFullCardWin(card.grid, drawnNumbersSet)) {
           hasFullCardWin = true;
           currentFullCardWinners.push({ 
               username: card.username, 
@@ -541,7 +476,9 @@ app.post('/api/draw/:txid', (req, res) => {
   };
 
   res.status(200).json(responsePayload);
-});
+}
+
+app.post('/api/draw/:txid', (req, res) => handleDraw(req, res));
 
 // --- NEW: End Game Manually (GM Only, for Partial Win Scenario) ---
 app.post('/api/end-game/:txid', (req, res) => {
@@ -730,4 +667,4 @@ if (require.main === module) {
 }
 
 // Export the app and gameStates for testing or direct use
-module.exports = { app, gameStates, uploadDir: UPLOADS_DIR }; // Also export uploadDir if needed by tests
+module.exports = { app, gameStates, uploadDir: UPLOADS_DIR, handleDraw }; // Also export uploadDir if needed by tests

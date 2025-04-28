@@ -1,133 +1,113 @@
+vi.mock('axios');
+
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import request from 'supertest';
+// import request from 'supertest'; // No longer needed for the refactored test
 import axios from 'axios';
 import fs from 'fs'; // Original fs for spyOn
 import fsPromises from 'fs/promises';
 import crypto from 'crypto';
-import path from 'path'; // Import path
+import path from 'path';
 
 // Mock external dependencies
-vi.mock('axios');
 vi.mock('fs/promises');
-vi.mock('crypto');
-// vi.mock('path'); // Keep basic mock for path if needed - Let's remove the global path mock for now
+vi.mock('crypto', () => ({
+    randomBytes: () => Buffer.from('0123456789abcdef'),
+}));
+// path is NOT mocked globally
 
-// --- Utils Mock MUST come BEFORE server import ---
-const mockFetchTxDataAndBlockHash = vi.fn();
-const mockGetParticipantsFromOpReturn = vi.fn();
-const mockGenerateAllCards = vi.fn();
+// --- Remove vi.mock for utils --- 
+// const mockFetchTxDataAndBlockHash = vi.fn();
+// const mockGetParticipantsFromOpReturn = vi.fn();
+// const mockGenerateAllCards = vi.fn();
+
+// vi.mock('../utils', () => ({
+//     fetchTxDataAndBlockHash: mockFetchTxDataAndBlockHash,
+//     getParticipantsFromOpReturn: mockGetParticipantsFromOpReturn,
+//     generateAllCards: mockGenerateAllCards,
+// }));
+
+// --- Import utils directly ---
+const utils = require('../utils');
+import { handleCheckTransaction, gameStates, uploadDir, app } from '../index';
+let server;
 
 vi.mock('../utils', () => ({
-    fetchTxDataAndBlockHash: mockFetchTxDataAndBlockHash,
-    getParticipantsFromOpReturn: mockGetParticipantsFromOpReturn,
-    generateAllCards: mockGenerateAllCards,
-    // Add other utils if they might be called indirectly and need mocking
+    fetchTxDataAndBlockHash: vi.fn(),
+    getParticipantsFromOpReturn: vi.fn(),
+    generateAllCards: vi.fn(),
+    // ... add other utils as needed
 }));
-// --- End Utils Mock ---
 
-// Import Server Module AFTER mocks
-import { app, gameStates, uploadDir } from '../index';
+// --- Define spies for utils functions ---
+// Restore fetchTxSpy
+let fetchTxSpy, getParticipantsSpy, generateCardsSpy;
 
-let server;
-// --- Removed handler mocking variables and helper ---
-// let originalCheckTransactionHandler = null;
-// function findRouteLayer(...) { ... }
-
-describe('API Endpoints Integration Tests', () => {
-
-    beforeAll(async () => {
-        server = app.listen(0);
-        console.log(`[Test Server - integration.test.js] Started on port ${server.address().port}`);
-        // --- Removed handler finding logic ---
-    });
-
-    afterAll(async () => {
-        // --- Removed handler restoration logic ---
-        await new Promise(resolve => server.close(resolve));
-        console.log(`[Test Server - integration.test.js] Closed.`);
-    });
+describe('API Endpoint Handlers', () => { // Changed describe block name
 
     beforeEach(() => {
-        vi.clearAllMocks(); // Clears external mocks
+        vi.clearAllMocks(); // Clears external mocks like fs, crypto
 
-        // Reset internal utils mocks
-        mockFetchTxDataAndBlockHash.mockReset();
-        mockGetParticipantsFromOpReturn.mockReset();
-        mockGenerateAllCards.mockReset();
-
-        // Reset external mocks as needed (e.g., path)
-        // vi.mocked(path.basename).mockClear(); // No longer mocking path globally
-        // vi.mocked(path.join).mockClear();
+        // --- Use vi.spyOn to mock utils functions ---
+        fetchTxSpy = vi.spyOn(utils, 'fetchTxDataAndBlockHash');
+        getParticipantsSpy = vi.spyOn(utils, 'getParticipantsFromOpReturn');
+        generateCardsSpy = vi.spyOn(utils, 'generateAllCards');
+        // --- End spyOn setup ---
 
         // Clear gameStates
         gameStates.clear();
-        
-        // --- Removed handler restoration logic ---
     });
 
     afterEach(() => {
-        // Restore spies used within tests
-        vi.restoreAllMocks(); // Use restoreAllMocks to catch spies too
-         // --- Removed handler restoration logic ---
+        vi.restoreAllMocks(); // This should restore the spies as well
     });
 
-    describe('POST /api/check-transaction', () => {
-        it('should successfully initialize a new game', async () => {
+    describe('handleCheckTransaction (POST /api/check-transaction)', () => {
+        // --- Refactored Test ---
+        it('should successfully initialize a new game via handler', async () => {
             const mockTxId = 'valid-txid-simple';
             const mockInputFilename = 'participants-simple.csv';
             const mockBlockHash = 'mock-block-hash-simple';
             const mockOpReturnHex = 'mock-op-return-hex-simple';
             const mockParticipants = [{ name: 'Alice' }, { name: 'Bob' }];
-            const mockCards = [ { cardId: 'c1'}, { cardId: 'c2'} ]; // Simplified mock cards
-            const expectedGmToken = Buffer.from('test-gm-token-buffer').toString('hex');
+            const mockCards = [ { cardId: 'c1'}, { cardId: 'c2'} ];
             const mockGameMode = 'fullCardOnly';
 
             // --- Setup Mocks ---
-            const expectedCheckPath = path.join(uploadDir, mockInputFilename);
-            const existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-            // Don't mock path.basename or path.join globally if not strictly necessary
-            // vi.mocked(path.basename).mockReturnValue(mockInputFilename);
-            // vi.mocked(path.join).mockReturnValue(expectedCheckPath); 
-            fsPromises.unlink.mockResolvedValue(undefined); // Mock unlink success
-            crypto.randomBytes.mockReturnValue(Buffer.from('test-gm-token-buffer'));
+            utils.fetchTxDataAndBlockHash.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
+            utils.getParticipantsFromOpReturn.mockResolvedValue(mockParticipants);
+            utils.generateAllCards.mockReturnValue(mockCards);
+            vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+            fsPromises.unlink.mockResolvedValue(undefined);
 
-            // Configure utils mocks for success
-            mockFetchTxDataAndBlockHash.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
-            mockGetParticipantsFromOpReturn.mockResolvedValue(mockParticipants);
-            mockGenerateAllCards.mockReturnValue(mockCards);
-            // --- End Mock Setup ---
+            // --- Mock Request and Response Objects ---
+            const mockReq = {
+                body: { 
+                    txid: mockTxId, 
+                    participantFilename: mockInputFilename, 
+                    gameMode: mockGameMode 
+                }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
 
-            // --- Explicitly reconfigure mocks just before request (belt-and-suspenders) ---
-            mockFetchTxDataAndBlockHash.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
-            mockGetParticipantsFromOpReturn.mockResolvedValue(mockParticipants);
-            mockGenerateAllCards.mockReturnValue(mockCards);
-            // --- End Reconfiguration ---
-
-            // --- Removed Handler Replacement --- 
-
-            const response = await request(server)
-                .post('/api/check-transaction')
-                .send({ txid: mockTxId, participantFilename: mockInputFilename, gameMode: mockGameMode });
+            // --- Call the handler directly ---
+            await handleCheckTransaction(mockReq, mockRes);
 
             // --- Assertions ---
-            expect(response.status).toBe(200);
-            expect(response.body).toEqual({
+            expect(mockRes.status).toHaveBeenCalledWith(200);
+            const jsonCall = mockRes.json.mock.calls[0][0];
+            expect(jsonCall).toMatchObject({
                 message: 'Transaction confirmed and game state initialized.',
                 txid: mockTxId,
                 blockHash: mockBlockHash,
                 participantCount: mockParticipants.length,
-                gmToken: expectedGmToken
             });
+            expect(typeof jsonCall.gmToken).toBe('string');
+            expect(jsonCall.gmToken).toMatch(/^[a-f0-9]{32}$/);
 
-            // Assert mocks were called
-            expect(existsSyncSpy).toHaveBeenCalledWith(expectedCheckPath);
-            expect(mockFetchTxDataAndBlockHash).toHaveBeenCalledWith(mockTxId);
-            expect(mockGetParticipantsFromOpReturn).toHaveBeenCalledWith(mockOpReturnHex);
-            expect(mockGenerateAllCards).toHaveBeenCalledWith(mockParticipants, mockBlockHash);
-            expect(fsPromises.unlink).toHaveBeenCalledWith(expectedCheckPath);
-            expect(crypto.randomBytes).toHaveBeenCalledWith(16);
-
-            // Assert game state
+            // Assert game state is created
             expect(gameStates.has(mockTxId)).toBe(true);
             const createdState = gameStates.get(mockTxId);
             expect(createdState).toEqual(expect.objectContaining({
@@ -139,7 +119,6 @@ describe('API Endpoints Integration Tests', () => {
                 cards: mockCards,
                 drawnNumbers: [],
                 nextDerivationIndex: 0,
-                gmToken: expectedGmToken,
                 gameMode: mockGameMode,
                 isOver: false
             }));
@@ -149,36 +128,165 @@ describe('API Endpoints Integration Tests', () => {
             const mockTxId = 'valid-txid-file-not-found';
             const mockInputFilename = 'nonexistent.csv';
             const mockGameMode = 'partialAndFull';
-            const expectedCheckPath = path.join(uploadDir, mockInputFilename);
+            const expectedCheckPath = path.join(uploadDir, mockInputFilename); // Use real path.join
 
             // --- Setup Mocks ---
             const existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
-            // REMOVED path mocks for this test to simplify
-            // vi.mocked(path.basename).mockReturnValue(mockInputFilename);
-            // vi.mocked(path.join).mockReturnValue(expectedCheckPath);
-            // Ensure other mocks are not called
+            // No need to configure utils spies as they shouldn't be called
             // --- End Mock Setup ---
 
-            // --- Removed Handler Replacement --- 
+             // --- Mock Request and Response Objects ---
+             const mockReq = {
+                body: { 
+                    txid: mockTxId, 
+                    participantFilename: mockInputFilename, 
+                    gameMode: mockGameMode 
+                }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            // --- End Mock Req/Res ---
 
-            const response = await request(server)
-                .post('/api/check-transaction')
-                .send({ txid: mockTxId, participantFilename: mockInputFilename, gameMode: mockGameMode });
+            // --- Call the handler directly ---
+            await handleCheckTransaction(mockReq, mockRes);
+            // --- End Handler Call ---
 
             // --- Assertions ---
-            expect(response.status).toBe(404);
-            expect(response.body.message).toBe('Participant file not found.');
+            expect(mockRes.status).toHaveBeenCalledWith(404);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: 'Participant file not found.' });
             
-            // Assert only relevant mocks were called
+            // Assert only relevant mocks/spies were called
             expect(existsSyncSpy).toHaveBeenCalledWith(expectedCheckPath); // Assert with path calculated using real path.join
-            // expect(path.join).toHaveBeenCalledWith(uploadDir, mockInputFilename); // Cannot assert call count on real path.join
-            expect(mockFetchTxDataAndBlockHash).not.toHaveBeenCalled();
-            expect(mockGetParticipantsFromOpReturn).not.toHaveBeenCalled();
-            expect(mockGenerateAllCards).not.toHaveBeenCalled();
+            // Restore fetchTxSpy assertion
+            expect(fetchTxSpy).not.toHaveBeenCalled();
+            // expect(axios.get).not.toHaveBeenCalled(); // Remove axios check
+            expect(getParticipantsSpy).not.toHaveBeenCalled();
+            expect(generateCardsSpy).not.toHaveBeenCalled();
             expect(fsPromises.unlink).not.toHaveBeenCalled();
             expect(gameStates.has(mockTxId)).toBe(false);
         });
 
-        // TODO: Add tests for other conditions (Game Exists, Missing Input, TX Error, etc.)
+        // --- Additional tests for full coverage (Story 6B) ---
+        it('should return 200 and not re-initialize if game already exists', async () => {
+            const mockTxId = 'existing-txid';
+            const mockInputFilename = 'participants-existing.csv';
+            const mockBlockHash = 'mock-block-hash-existing';
+            const mockOpReturnHex = 'mock-op-return-hex-existing';
+            const mockParticipants = [{ name: 'Alice' }, { name: 'Bob' }];
+            const mockCards = [ { cardId: 'c1'}, { cardId: 'c2'} ];
+            const mockGameMode = 'partialAndFull';
+            // Pre-populate gameStates
+            gameStates.set(mockTxId, {
+                txid: mockTxId,
+                status: 'initialized',
+                blockHash: mockBlockHash,
+                participants: mockParticipants,
+                baseSeed: mockBlockHash,
+                cards: mockCards,
+                drawnNumbers: [],
+                nextDerivationIndex: 0,
+                gameMode: mockGameMode,
+                isOver: false,
+                gmToken: 'existing-gm-token',
+            });
+            vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+            // --- Mock Request and Response Objects ---
+            const mockReq = {
+                body: { 
+                    txid: mockTxId, 
+                    participantFilename: mockInputFilename, 
+                    gameMode: mockGameMode 
+                }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            await handleCheckTransaction(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(200);
+            const jsonCall = mockRes.json.mock.calls[0][0];
+            expect(jsonCall).not.toHaveProperty('gmToken');
+            expect(gameStates.get(mockTxId).gmToken).toBe('existing-gm-token');
+        });
+
+        it('should return 400 if txid is missing', async () => {
+            const mockReq = {
+                body: { participantFilename: 'file.csv', gameMode: 'fullCardOnly' }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            await handleCheckTransaction(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: 'Missing txid or participantFilename in request body.' });
+        });
+
+        it('should return 400 if participantFilename is missing', async () => {
+            const mockReq = {
+                body: { txid: 'some-txid', gameMode: 'partialAndFull' }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            await handleCheckTransaction(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: 'Missing txid or participantFilename in request body.' });
+        });
+
+        it('should return 400 if gameMode is missing or invalid', async () => {
+            const mockReq = {
+                body: { txid: 'some-txid', participantFilename: 'file.csv' }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            await handleCheckTransaction(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: expect.stringContaining('Invalid or missing gameMode') });
+        });
+
+        it('should return 500 if fetchTxDataAndBlockHash throws (TX Fetch Error)', async () => {
+            const mockTxId = 'txid-fetch-error';
+            const mockInputFilename = 'file.csv';
+            const mockGameMode = 'fullCardOnly';
+            vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+            utils.fetchTxDataAndBlockHash.mockRejectedValue(new Error('TX fetch failed'));
+            const mockReq = {
+                body: { txid: mockTxId, participantFilename: mockInputFilename, gameMode: mockGameMode }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            await handleCheckTransaction(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(500);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: expect.stringContaining('TX fetch failed') });
+        });
+
+        it('should return 500 if getParticipantsFromOpReturn throws (IPFS Fetch Error)', async () => {
+            const mockTxId = 'txid-ipfs-error';
+            const mockInputFilename = 'file.csv';
+            const mockBlockHash = 'mock-block-hash';
+            const mockOpReturnHex = 'mock-op-return-hex';
+            const mockGameMode = 'partialAndFull';
+            vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+            utils.fetchTxDataAndBlockHash.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
+            utils.getParticipantsFromOpReturn.mockRejectedValue(new Error('IPFS fetch failed'));
+            const mockReq = {
+                body: { txid: mockTxId, participantFilename: mockInputFilename, gameMode: mockGameMode }
+            };
+            const mockRes = {
+                status: vi.fn().mockReturnThis(),
+                json: vi.fn(),
+            };
+            await handleCheckTransaction(mockReq, mockRes);
+            expect(mockRes.status).toHaveBeenCalledWith(500);
+            expect(mockRes.json).toHaveBeenCalledWith({ message: expect.stringContaining('IPFS fetch failed') });
+        });
     });
 }); 

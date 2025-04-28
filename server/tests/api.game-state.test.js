@@ -149,4 +149,127 @@ describe('GET /api/game-state/:txid', () => {
         expect(response.body).toEqual({ message: 'Game not found.' }); 
     });
 
+    // --- NEW Test Cases for Different States/Modes ---
+
+    it('Story: Get State (fullCardOnly mode)', async () => {
+        // Setup state for fullCardOnly mode
+        gameStates.set(testTxid, {
+            ...JSON.parse(JSON.stringify(initialGameState)),
+            gameMode: 'fullCardOnly',
+            partialWinOccurred: false, // Should remain false
+            partialWinners: null, // Should remain null
+            continueAfterPartialWin: false // Should remain false
+        });
+
+        // Player view
+        const playerResponse = await request(server)
+            .get(`/api/game-state/${testTxid}`)
+            .send();
+
+        expect(playerResponse.status).toBe(200);
+        expect(playerResponse.body).toEqual(expect.objectContaining({
+            gameMode: 'fullCardOnly',
+            isOver: false,
+            partialWinOccurred: false,
+            partialWinners: null,
+            fullCardWinners: null
+        }));
+        expect(playerResponse.body).not.toHaveProperty('continueAfterPartialWin');
+
+        // GM view
+        const gmResponse = await request(server)
+            .get(`/api/game-state/${testTxid}?gm=true`)
+            .send();
+        
+        expect(gmResponse.status).toBe(200);
+        expect(gmResponse.body).toEqual(expect.objectContaining({
+            gameMode: 'fullCardOnly',
+            isOver: false,
+            partialWinOccurred: false,
+            partialWinners: null,
+            fullCardWinners: null,
+            continueAfterPartialWin: false // Included for GM
+        }));
+    });
+
+    it('Story: Get State (partialAndFull mode, after partial win)', async () => {
+        const partialWinnersList = [{ username: 'Alice', cardId: 'c1' }];
+        gameStates.set(testTxid, {
+            ...JSON.parse(JSON.stringify(initialGameState)),
+            gameMode: 'partialAndFull',
+            partialWinOccurred: true, // Partial win occurred
+            partialWinners: partialWinnersList, // Winners set
+            continueAfterPartialWin: false // GM hasn't continued yet
+        });
+
+        // Player view
+        const playerResponse = await request(server)
+            .get(`/api/game-state/${testTxid}`)
+            .send();
+
+        expect(playerResponse.status).toBe(200);
+        expect(playerResponse.body).toEqual(expect.objectContaining({
+            gameMode: 'partialAndFull',
+            isOver: false,
+            partialWinOccurred: true,
+            partialWinners: partialWinnersList,
+            fullCardWinners: null
+        }));
+        expect(playerResponse.body).not.toHaveProperty('continueAfterPartialWin');
+    });
+
+    it('Story: Get State (partialAndFull mode, after partial win, GM continued)', async () => {
+        const partialWinnersList = [{ username: 'Alice', cardId: 'c1' }];
+        gameStates.set(testTxid, {
+            ...JSON.parse(JSON.stringify(initialGameState)),
+            gameMode: 'partialAndFull',
+            partialWinOccurred: true,
+            partialWinners: partialWinnersList,
+            continueAfterPartialWin: true // GM continued
+        });
+
+        // GM view (only GM sees the continue flag directly)
+        const gmResponse = await request(server)
+            .get(`/api/game-state/${testTxid}?gm=true`)
+            .send();
+        
+        expect(gmResponse.status).toBe(200);
+        expect(gmResponse.body).toEqual(expect.objectContaining({
+            gameMode: 'partialAndFull',
+            isOver: false,
+            partialWinOccurred: true,
+            partialWinners: partialWinnersList,
+            fullCardWinners: null,
+            continueAfterPartialWin: true // Should be true for GM
+        }));
+    });
+
+    it('Story: Get State (Game Over with Full Card Winner)', async () => {
+        const fullWinnersList = [{ username: 'Bob', cardId: 'c2' }];
+        gameStates.set(testTxid, {
+            ...JSON.parse(JSON.stringify(initialGameState)),
+            gameMode: 'fullCardOnly', // Could be either mode if game is over
+            isOver: true, // Game is over
+            fullCardWinners: fullWinnersList, // Full card winner set
+            // Partial fields might or might not be set depending on mode/history
+            partialWinOccurred: false, 
+            partialWinners: null,
+            continueAfterPartialWin: false
+        });
+
+        // Player view
+        const playerResponse = await request(server)
+            .get(`/api/game-state/${testTxid}`)
+            .send();
+
+        expect(playerResponse.status).toBe(200);
+        expect(playerResponse.body).toEqual(expect.objectContaining({
+            gameMode: 'fullCardOnly',
+            isOver: true,
+            fullCardWinners: fullWinnersList,
+            partialWinOccurred: false,
+            partialWinners: null,
+        }));
+    });
+
 }); 

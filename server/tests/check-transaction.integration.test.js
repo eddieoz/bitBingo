@@ -25,7 +25,8 @@ import crypto from 'crypto';
 import path from 'path';
 import * as utils from '../utils'; 
 
-describe.skip('POST /api/check-transaction Integration Test', () => { // SKIPPED: Temporarily due to test hangs/unclear failures
+// TDD/BDD-compliant: Uses static data from @start-story.mdc
+describe('POST /api/check-transaction Integration Test', () => {
 
     beforeEach(async () => {
         vi.restoreAllMocks(); // Use restore for spies if any are used elsewhere
@@ -59,8 +60,9 @@ describe.skip('POST /api/check-transaction Integration Test', () => { // SKIPPED
     });
 
     it('should successfully initialize a new game', async () => {
-        const mockTxId = 'valid-txid';
-        const mockFilename = 'uploads/participants.csv';
+        // Use static data from @start-story.mdc
+        const mockTxId = '6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002';
+        const mockFilename = 'uploads/sample-tickets.csv';
         const expectedGmToken = Buffer.from('test-gm-token-buffer').toString('hex');
         const expectedFilePath = `server/uploads/${path.basename(mockFilename)}`; 
 

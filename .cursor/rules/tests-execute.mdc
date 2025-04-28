@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+execute the tests in non-interactive mode, identify and fix errors [fix-tests.mdc](mdc:.cursor/rules/fix-tests.mdc)

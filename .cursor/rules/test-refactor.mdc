@@ -3,4 +3,4 @@ description:
 globs: 
 alwaysApply: false
 ---
-Clear and refactor the identified problematic test, focusing on simplification as strategy
+Clear, isolate and refactor the identified problematic test, focusing on simplification as strategy [fix-tests.mdc](mdc:.cursor/rules/fix-tests.mdc)

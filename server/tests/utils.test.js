@@ -537,4 +537,20 @@ describe('checkFullCardWin', () => {
     // Then: It should return true because all required numbers are present
     expect(result).toBe(true);
   });
+
+  it('should return true for a real card generated from known block hash and derivation (m/44\'/0\'/0\'/0/0)', () => {
+    // Reference: start-story.mdc real data
+    const blockHash = '000000000000000000006f9367863b3fa7ecbc605c8215ef9e92386cbec8255f';
+    const index = 0; // m/44'/0'/0'/0/0
+    const publicKey = derivePublicKey(blockHash, index);
+    const card = generateBingoCard(publicKey);
+    // Helper to flatten grid numbers (excluding null)
+    const flattenGrid = (grid) => Object.values(grid).flat().filter(num => num !== null);
+    const allNumbers = flattenGrid(card.grid);
+    const drawnNumbersSet = new Set(allNumbers);
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(card.grid, drawnNumbersSet);
+    // Then: It should return true
+    expect(result).toBe(true);
+  });
 });
