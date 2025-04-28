@@ -1,11 +1,17 @@
-import { vi } from 'vitest';
-vi.mock('../utils');
-
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import * as utils from '../utils';
+const { app, gameStates: testGameStates, handleDraw } = require('../index.cjs');
 
-import { app, gameStates as testGameStates, handleDraw } from '../index';
+vi.mock('../utils', async () => {
+  const actualUtils = await vi.importActual('../utils');
+  return {
+    ...actualUtils,
+    derivePublicKey: vi.fn(),
+    checkLineWin: vi.fn(),
+    checkFullCardWin: vi.fn(),
+  };
+});
 
 // --- Test Suite Setup ---
 let server; // Variable to hold the server instance

@@ -43,7 +43,6 @@ function shortenTxId(txId: string | null, startLength = 6, endLength = 6): strin
 
 // Renamed AdminPage to HomePage or just export default function
 export default function AdminHomePage() { // Renamed back to default export 
-  console.log('Rendering FULL AdminHomePage...'); // ADDED/CHANGED log
   const [raffleState, setRaffleState] = useState<RaffleState>({
     fileUploaded: false,
     fileHash: null,
@@ -228,24 +227,25 @@ export default function AdminHomePage() { // Renamed back to default export
   const handleFileUploadSuccess = (data: { 
     filename: string; 
     message: string; 
-    hexCid: string; 
-    ipfsCid: string; 
+    fileHash: string; 
+    ipfsHash: string; 
     participantCount: number; 
   }) => { 
      console.log('File upload successful, API response:', data);
-     console.log(`Received from API -> hexCid: ${data.hexCid}, ipfsCid: ${data.ipfsCid}, count: ${data.participantCount}`); 
+     console.log(`Received from API -> fileHash: ${data.fileHash}, ipfsHash: ${data.ipfsHash}, count: ${data.participantCount}`); 
      setRaffleState(prevState => ({
       ...prevState,
       fileUploaded: true,
       participantFilename: data.filename,
-      // Store the received data
-      fileHash: data.hexCid, // Store hexCid in fileHash
+      fileHash: data.fileHash, // Store fileHash (hex CID)
       participantCount: data.participantCount, // Store participantCount
-      ipfsHash: data.ipfsCid, // Store ipfsCid in ipfsHash
+      ipfsHash: data.ipfsHash, // Store ipfsHash
       error: null // Clear any previous upload errors
     }));
-    // Log state *after* setting it (React state updates might be async)
-    // Better to log inside useEffect or rely on the render log
+    setTimeout(() => {
+      console.log('[handleFileUploadSuccess] New raffleState.fileHash:', data.fileHash);
+      console.log('[handleFileUploadSuccess] New raffleState.participantFilename:', data.filename);
+    }, 0);
   };
 
   const handleTransactionCreated = (data: { txId: string }) => { // Added type
@@ -483,9 +483,6 @@ export default function AdminHomePage() { // Renamed back to default export
         setRaffleState(prevState => ({ ...prevState, loading: false }));
     }
   };
-
-  // --- ADD DEBUG LOG --- 
-  console.log('AdminHomePage rendering with raffleState:', raffleState);
 
   const playerPageUrl = raffleState.txId ? `${window.location.origin}/play/${raffleState.txId}` : '';
 

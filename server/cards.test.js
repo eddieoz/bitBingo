@@ -63,8 +63,8 @@ describe('GET /api/cards/:txid/:nickname', () => {
   };
 
   beforeAll(async () => {
-    // Dynamically import app, start server, and get gameStates map
-    const serverModule = await import('./index');
+    // Use require for CJS compatibility
+    const serverModule = require('./index.cjs');
     app = serverModule.app;
     gameStates = serverModule.gameStates; // Get reference to the map
     server = app.listen(0);

@@ -2,10 +2,10 @@
   "name": "bitBingo-server",
   "version": "1.0.0",
   "description": "Backend for bitBingo - a trustless blockchain raffle system",
-  "main": "index.js",
+  "main": "index.cjs",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node index.cjs",
+    "dev": "nodemon index.cjs",
     "test": "vitest --run"
   },
   "keywords": [

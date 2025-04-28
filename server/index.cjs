@@ -1,3 +1,6 @@
+// This file has been renamed to index.cjs to ensure CommonJS compatibility.
+// Please use index.cjs as the entry point.
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -144,7 +147,7 @@ function calculateStatistics(gameState) {
 }
 
 // --- Exported Handler Function for Check Transaction ---
-export async function handleCheckTransaction(req, res) {
+async function handleCheckTransaction(req, res) {
   const { txid, participantFilename, gameMode } = req.body;
   console.log(`[Check TX] Received request for TXID: ${txid}, Filename: ${participantFilename}, Mode: ${gameMode}`);
 
@@ -289,10 +292,58 @@ export async function handleCheckTransaction(req, res) {
     if (error.message.includes('Failed to retrieve or decode participant list')) statusCode = 502; // Bad Gateway (IPFS issue)
 
     res.status(statusCode).json({ 
-        message: `Failed to process transaction: ${error.message}`
+        message: `Failed to process transaction: ${error.message}`,
+        error: error.message
     });
   }
 }
+
+// --- 1. Upload Participant List --- 
+app.post('/api/upload-participants', upload.single('participantFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded.' });
+    }
+    const filePath = req.file.path;
+    const fileName = req.file.filename;
+    // Parse CSV to count participants
+    let participants;
+    try {
+      participants = await csvtojson().fromFile(filePath);
+    } catch (csvError) {
+      return res.status(400).json({ message: 'Failed to parse CSV file.', details: csvError.message });
+    }
+    if (!participants || participants.length === 0) {
+      return res.status(400).json({ message: 'CSV file is empty or invalid.' });
+    }
+    // Upload to Pinata
+    let cid;
+    try {
+      cid = await uploadToPinata(filePath, fileName);
+    } catch (pinataError) {
+      return res.status(500).json({ message: 'Failed to upload file to Pinata.', details: pinataError.message });
+    }
+    // If uploadToPinata returns the CID directly (as in current code)
+    const ipfsHash = typeof cid === 'string' ? cid : (cid && cid.data && cid.data.cid) ? cid.data.cid : null;
+    if (!ipfsHash) {
+      return res.status(500).json({ message: 'Pinata upload did not return a valid CID.' });
+    }
+    const hexCID = Buffer.from(ipfsHash).toString('hex');
+    const publicUrl = `${PINATA_PUBLIC_GATEWAY_BASE || 'https://gateway.pinata.cloud/ipfs/'}/${ipfsHash}`;
+    const responseObj = {
+      status: 'success',
+      ipfsHash,
+      fileHash: hexCID,
+      publicUrl,
+      participantCount: participants.length,
+      filename: fileName
+    };
+    console.log('[Upload Participants] Response:', responseObj);
+    res.status(200).json(responseObj);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error during file upload', details: error.message });
+  }
+});
 
 // --- 2. Check Transaction & Initialize Game --- 
 app.post('/api/check-transaction', handleCheckTransaction); // Use the extracted handler
@@ -673,4 +724,4 @@ if (require.main === module) {
 }
 
 // Export the app and gameStates for testing or direct use
-module.exports = { app, gameStates, uploadDir: UPLOADS_DIR, handleDraw }; // Also export uploadDir if needed by tests
+module.exports = { app, gameStates, uploadDir: UPLOADS_DIR, handleDraw, handleCheckTransaction };

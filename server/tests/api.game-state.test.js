@@ -52,8 +52,8 @@ describe('GET /api/game-state/:txid', () => {
     const expectedStatsString = "No players have 2 or more marks in a line yet."; // Max marks = 1 (free space)
 
     beforeAll(async () => {
-        // Dynamically import app, start server, get gameStates map
-        const serverModule = await import('../index');
+        // Use CommonJS require for consistent import
+        const serverModule = require('../index.cjs');
         app = serverModule.app;
         gameStates = serverModule.gameStates;
         server = app.listen(0); // Start on random port

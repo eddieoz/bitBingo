@@ -28,7 +28,7 @@ vi.mock('crypto', () => ({
 
 // --- Import utils directly ---
 const utils = require('../utils');
-import { handleCheckTransaction, gameStates, uploadDir, app } from '../index';
+const { handleCheckTransaction, gameStates, uploadDir, app } = require('../index.cjs');
 let server;
 
 vi.mock('../utils', () => ({
@@ -265,7 +265,10 @@ describe('API Endpoint Handlers', () => { // Changed describe block name
             };
             await handleCheckTransaction(mockReq, mockRes);
             expect(mockRes.status).toHaveBeenCalledWith(500);
-            expect(mockRes.json).toHaveBeenCalledWith({ message: expect.stringContaining('TX fetch failed') });
+            expect(mockRes.json).toHaveBeenCalledWith({ 
+                message: expect.stringContaining('TX fetch failed'),
+                error: expect.stringContaining('TX fetch failed')
+            });
         });
 
         it('should return 500 if getParticipantsFromOpReturn throws (IPFS Fetch Error)', async () => {
@@ -286,7 +289,10 @@ describe('API Endpoint Handlers', () => { // Changed describe block name
             };
             await handleCheckTransaction(mockReq, mockRes);
             expect(mockRes.status).toHaveBeenCalledWith(500);
-            expect(mockRes.json).toHaveBeenCalledWith({ message: expect.stringContaining('IPFS fetch failed') });
+            expect(mockRes.json).toHaveBeenCalledWith({ 
+                message: expect.stringContaining('IPFS fetch failed'),
+                error: expect.stringContaining('IPFS fetch failed')
+            });
         });
     });
 }); 

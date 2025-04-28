@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { app, gameStates as testGameStates } from '../index'; // Import app and gameStates
+const { app, gameStates: testGameStates } = require('../index.cjs'); // Import app and gameStates
 
 // --- Test Suite Setup ---
 let server;
