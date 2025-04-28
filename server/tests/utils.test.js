@@ -383,7 +383,7 @@ describe('checkLineWin', () => {
   it('should return null when no winning line exists', () => {
     // Given: Grid and drawn numbers with no winning line
     const drawnNumbers = new Set([1, 17, 33, 48, 62, 70]); // No complete line
-
+    
     // When: checkLineWin is called
     const result = checkLineWin(sampleGrid, drawnNumbers);
 
