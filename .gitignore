@@ -80,3 +80,5 @@ server/uploads/
 .cursor/
 
 .cursor-updates
+
+.cursorignore
