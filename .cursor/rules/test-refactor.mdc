@@ -1,6 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: false
----
-Clear, isolate and refactor the identified problematic test, focusing on simplification as strategy [fix-tests.mdc](mdc:.cursor/rules/fix-tests.mdc)

@@ -77,3 +77,4 @@ clips_automator/
 
 # Server uploads directory
 server/uploads/
+.cursor/
