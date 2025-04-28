@@ -36,8 +36,12 @@ export interface GameState {
   drawSequenceLength?: number; // Added from API response
   lastDrawTime?: number | null; // Added from API response
   isOver: boolean; // isOver is returned by the API
-  winners: WinnerInfo[]; // Changed from string[] and removed separate winnerNickname/winningSequence
+  winners?: WinnerInfo[] | null; // Ensure only one optional/nullable winners field exists
   statistics?: string; // Added from API response
+  gameMode: string;
+  partialWinOccurred: boolean;
+  partialWinners: WinnerInfo[] | null;
+  fullCardWinners: WinnerInfo[] | null;
 }
 
 // Structure for the logged-in user session on the PlayPage

@@ -12,7 +12,8 @@ const TransactionCreator = ({
   participantFilename,
   blockHash,
   apiUrl,
-  onReset
+  onReset,
+  selectedGameMode
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -50,7 +51,8 @@ const TransactionCreator = ({
       // Call /api/check-transaction with txid and filename
       const response = await axios.post(`${apiUrl}/api/check-transaction`, { 
         txid: submittedTxId.trim(),
-        participantFilename: participantFilename
+        participantFilename: participantFilename,
+        gameMode: selectedGameMode
       });
       
       // The check-transaction endpoint confirms immediately if valid

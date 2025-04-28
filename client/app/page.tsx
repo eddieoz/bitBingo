@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Container, Row, Col, Card, Alert, Spinner, Button, Modal, ButtonGroup } from 'react-bootstrap'; // Added Alert, Spinner, Button, Modal, ButtonGroup
+import { Container, Row, Col, Card, Alert, Spinner, Button, Modal, ButtonGroup, Form } from 'react-bootstrap'; // Added Alert, Spinner, Button, Modal, ButtonGroup, Form
 // Assuming bootstrap CSS is imported globally in layout.tsx
 // import 'bootstrap/dist/css/bootstrap.min.css'; 
 import '../src/App.css'; // Adjust path to App.css
@@ -65,10 +65,20 @@ export default function AdminHomePage() { // Renamed back to default export
   const [isLoadingDraw, setIsLoadingDraw] = useState(false);
   const [pollingError, setPollingError] = useState<string | null>(null);
   const pollingIntervalId = useRef<NodeJS.Timeout | null>(null);
+  // --- NEW: State for partial win handling ---
+  const [partialWinOccurred, setPartialWinOccurred] = useState<boolean>(false);
+  const [partialWinners, setPartialWinners] = useState<WinnerInfo[] | null>(null);
+  const [fullCardWinners, setFullCardWinners] = useState<WinnerInfo[] | null>(null);
+  // --- End partial win state ---
+  // --- NEW: State for continuing after partial win ---
+  const [allowDrawingAfterPartialWin, setAllowDrawingAfterPartialWin] = useState<boolean>(false);
+  // --- End continuation state ---
   // === Restore QR code state ===
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null); // State for Data URL
   const [isPlayLinkCopied, setIsPlayLinkCopied] = useState(false); // State for copy button text
+  // --- NEW: Game Mode State --- 
+  const [selectedGameMode, setSelectedGameMode] = useState<'partialAndFull' | 'fullCardOnly'>('fullCardOnly');
 
   // --- GM Token Check Effect (Run once on mount or when txId changes) --- 
   useEffect(() => {
@@ -111,19 +121,44 @@ export default function AdminHomePage() { // Renamed back to default export
     setPollingError(null);
 
     try {
-      const response = await axios.get(url);
-      const { drawnNumbers: newDrawnNumbers, isOver: newIsGameOver, winners: newWinners, statistics: newStatistics } = response.data;
+      // Ensure GM token is included if available, to get full state including stats
+      const headers: { Authorization?: string } = {};
+      const storedToken = gmToken || JSON.parse(localStorage.getItem('gmTokens') || '{}')[currentTxId]; // Use component state or fallback to local storage
+      if (storedToken) {
+        headers.Authorization = `Bearer ${storedToken}`;
+      }
 
+      // Add gm=true query param to ensure GM stats are fetched
+      const response = await axios.get(url, { headers, params: { gm: 'true' } }); 
+      const { 
+          drawnNumbers: newDrawnNumbers, 
+          isOver: newIsGameOver, 
+          statistics: newStatistics, 
+          // New fields
+          gameMode: newGameMode, // We don't have state for this yet, maybe add later if needed
+          partialWinOccurred: newPartialWinOccurred,
+          partialWinners: newPartialWinners,
+          fullCardWinners: newFullCardWinners 
+      } = response.data;
+
+      // Update state with all fetched fields
       setDrawnNumbers(newDrawnNumbers || []);
       setStatistics(newStatistics || '');
-      setWinners(newWinners || []);
-
+      setIsGameOver(newIsGameOver || false);
+      setPartialWinOccurred(newPartialWinOccurred || false);
+      setPartialWinners(newPartialWinners || null);
+      setFullCardWinners(newFullCardWinners || null);
+      
+      // Combine winners for display? Or keep separate?
+      // Let's keep the old `winners` state updated with *final* winners for now
+      // If game is over, final winners are either partial (if ended early) or full card.
       if (newIsGameOver) {
-        console.log('Game is over. Winners:', newWinners);
-        setIsGameOver(true);
+        setWinners(newFullCardWinners || newPartialWinners || []); // Prioritize full card, then partial
+        console.log('Game is over. Final Winners:', newFullCardWinners || newPartialWinners);
         stopPolling();
       } else {
-        setIsGameOver(false);
+         // If game not over, clear the final winners state
+         setWinners([]);
       }
       
     } catch (error: any) {
@@ -144,8 +179,19 @@ export default function AdminHomePage() { // Renamed back to default export
           console.log('Polling stopped due to 404 error.');
           stopPolling();
       }
+      // Reset game state when txId is cleared
+      setDrawnNumbers([]);
+      setIsGameOver(false);
+      setWinners([]);
+      setStatistics('');
+      setPollingError(null);
+      // Reset new state fields too
+      setPartialWinOccurred(false);
+      setPartialWinners(null);
+      setFullCardWinners(null);
+      setAllowDrawingAfterPartialWin(false); // <-- Reset continuation state
     }
-  }, [stopPolling]);
+  }, [stopPolling, gmToken]);
 
   const startPolling = useCallback((txid: string) => {
       if (!txid || pollingIntervalId.current) return; // Don't start if no txid or already polling
@@ -167,6 +213,11 @@ export default function AdminHomePage() { // Renamed back to default export
       setWinners([]);
       setStatistics('');
       setPollingError(null);
+      // Reset new state fields too
+      setPartialWinOccurred(false);
+      setPartialWinners(null);
+      setFullCardWinners(null);
+      setAllowDrawingAfterPartialWin(false); // <-- Reset continuation state
     }
     // Cleanup function to stop polling when component unmounts or txId changes
     return () => stopPolling(); 
@@ -294,6 +345,46 @@ export default function AdminHomePage() { // Renamed back to default export
           setIsLoadingDraw(false); // Set loading false
       }
   };
+
+  // --- NEW: Handler for End Game button ---
+  const handleEndGame = async () => {
+    if (!raffleState.txId || !gmToken) {
+      console.error('Cannot end game: Missing txId or GM Token.');
+      setPollingError('Cannot end game: Missing txId or GM Token.');
+      return;
+    }
+    console.log(`[End Game Button] Attempting to end game ${raffleState.txId}`);
+    // Set loading state? Maybe reuse isLoadingDraw or add a new one?
+    // Let's add a specific one for clarity
+    // const [isEndingGame, setIsEndingGame] = useState(false); // <-- Add this state higher up
+    // setIsEndingGame(true);
+    setPollingError(null);
+
+    try {
+      const headers = { Authorization: `Bearer ${gmToken}` };
+      const response = await axios.post(`${API_URL}/api/end-game/${raffleState.txId}`, null, { headers });
+      console.log('End game successful:', response.data);
+      // API response should indicate game is over. Polling will pick it up,
+      // or we can force a state update/refetch here.
+      setIsGameOver(true); // Force UI update immediately
+      // Maybe update winners state based on response.data.partialWinners?
+      // Polling already handles setting final winners when isOver is true.
+      fetchCurrentGameState(raffleState.txId); // Force immediate refetch
+      stopPolling(); // Stop polling as game ended
+    } catch (error: any) {
+      console.error('Error ending game:', error);
+      let errorMsg = 'Failed to end game';
+      if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      setPollingError(errorMsg);
+    } finally {
+      // setIsEndingGame(false); // <-- If loading state was added
+    }
+  };
+  // --- End End Game Handler ---
 
   const handleReset = async () => {
      // --- MOVE STATE RESET BEFORE API CALL ---
@@ -459,10 +550,39 @@ export default function AdminHomePage() { // Renamed back to default export
                       '2. Create Transaction'}
                   </Card.Header>
                   <Card.Body>
+                      {/* --- NEW: Game Mode Selection (Show after upload, before TX) --- */}
+                      {raffleState.fileUploaded && !raffleState.txId && (
+                          <Form.Group className="mb-3">
+                              <Form.Label><strong>Select Game Mode:</strong></Form.Label>
+                              <Form.Check 
+                                  type="radio"
+                                  label="Full Card Win Only"
+                                  name="gameModeRadio"
+                                  id="modeFullCardOnly"
+                                  value="fullCardOnly"
+                                  checked={selectedGameMode === 'fullCardOnly'}
+                                  onChange={(e) => setSelectedGameMode(e.target.value as 'fullCardOnly')} 
+                                  disabled={raffleState.txConfirmed || drawnNumbers.length > 0}
+                              />
+                              <Form.Check 
+                                  type="radio"
+                                  label="Partial Win (Any Line) & Full Card"
+                                  name="gameModeRadio"
+                                  id="modePartialAndFull"
+                                  value="partialAndFull"
+                                  checked={selectedGameMode === 'partialAndFull'}
+                                  onChange={(e) => setSelectedGameMode(e.target.value as 'partialAndFull')} 
+                                  disabled={raffleState.txConfirmed || drawnNumbers.length > 0}
+                              />
+                          </Form.Group>
+                      )}
+                      {/* --- End Game Mode Selection --- */}
+                      
                       {/* Render TransactionCreator always, pass props to control its state */}
                       <TransactionCreator 
                           apiUrl={API_URL}
                           participantFilename={raffleState.participantFilename} 
+                          selectedGameMode={selectedGameMode}
                           onTransactionCreated={handleTransactionCreated} 
                           onTransactionConfirmed={handleTransactionConfirmed}
                           // Disable based on file upload status or existing txId
@@ -495,27 +615,79 @@ export default function AdminHomePage() { // Renamed back to default export
                               // Potentially add a manual check button if TransactionCreator doesn't poll
                           )}
                           
-                          {/* Game Over Display - Updated */} 
-                          {isGameOver && winners.length > 0 && (
+                          {/* --- Display FINAL Winners (Game Over) --- */}
+                          {isGameOver && (partialWinners || fullCardWinners) && ( // Check if either winner list exists
                               <Alert variant="success">
-                                  <h4 className="alert-heading">Game Over! Winner{winners.length > 1 ? 's' : ''}:</h4>
-                                  {winners.map((winner, index) => (
-                                    <div key={index} className="mb-2">
-                                      <p className="mb-0"><strong>{winner.username}</strong> (Card ID: {winner.cardId})</p>
-                                      <small>Sequence: {winner.sequence.join(', ')}</small>
-                                    </div>
-                                  ))}
+                                  <h4 className="alert-heading">Game Over!</h4>
+                                  {/* Display Partial Winners if they exist */} 
+                                  {partialWinners && partialWinners.length > 0 && (
+                                      <div className="mb-3">
+                                          <p className="mb-1"><strong>Partial Winner{partialWinners.length > 1 ? 's' : ''} (Line Win):</strong></p>
+                                          {partialWinners.map((winner, index) => (
+                                            <div key={`p-${index}`} className="small ms-2">
+                                              <span>{winner.username} (Card: {winner.cardId}) - Sequence: {winner.sequence.map(n => n === null ? 'FREE' : n).join(', ')}</span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                  )}
+                                  {/* Display Full Card Winners if they exist */} 
+                                  {fullCardWinners && fullCardWinners.length > 0 && (
+                                      <div>
+                                          <p className="mb-1"><strong>Full Card Winner{fullCardWinners.length > 1 ? 's' : ''}:</strong></p>
+                                          {fullCardWinners.map((winner, index) => (
+                                            <div key={`f-${index}`} className="small ms-2">
+                                               <span>{winner.username} (Card: {winner.cardId}) - Sequence: {winner.sequence}</span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                  )}
                               </Alert>
                           )}
                           
-                          {/* Draw Button */} 
-                          {raffleState.txConfirmed && !isGameOver && (
-                              <DrawNumberButton 
-                                  onDraw={handleDrawNumber} 
-                                  isDisabled={isLoadingDraw} // Simplified isDisabled
-                                  isLoading={isLoadingDraw}
-                              />
+                          {/* --- Display PARTIAL Winners (Game Not Over) --- */}
+                          {partialWinOccurred && !isGameOver && partialWinners && partialWinners.length > 0 && (
+                              <Alert variant="warning">
+                                  <h4 className="alert-heading">Partial Win Detected!</h4>
+                                  {partialWinners.map((winner, index) => (
+                                    <div key={index} className="mb-2">
+                                      <p className="mb-0"><strong>{winner.username}</strong> (Card ID: {winner.cardId})</p>
+                                      <small>Sequence: {typeof winner.sequence === 'string' ? winner.sequence : winner.sequence.map(n => n === null ? 'FREE' : n).join(', ')}</small>
+                                    </div>
+                                  ))}
+                                  <hr />
+                                  <p className="mb-0">Choose whether to continue playing for a Full Card win.</p>
+                              </Alert>
                           )}
+                          
+                          {/* --- Game Controls --- */} 
+                          {raffleState.txConfirmed && !isGameOver && (
+                              <> 
+                                  {/* Show Draw Button ONLY if partial win hasn't occurred OR if GM decides to continue */}
+                                  {(!partialWinOccurred || allowDrawingAfterPartialWin) && (
+                                      <DrawNumberButton 
+                                          onDraw={handleDrawNumber} 
+                                          isDisabled={isLoadingDraw} 
+                                          isLoading={isLoadingDraw}
+                                      />
+                                  )}
+
+                                  {/* Show Continue/End buttons ONLY if partial win HAS occurred AND drawing is not currently allowed */}
+                                  {partialWinOccurred && !allowDrawingAfterPartialWin && (
+                                      <div className="mt-3">
+                                          <h5>Partial Win Options:</h5>
+                                          <ButtonGroup>
+                                              <Button variant="success" onClick={() => setAllowDrawingAfterPartialWin(true)}>
+                                                  Continue to Full Card
+                                              </Button>
+                                              <Button variant="danger" onClick={handleEndGame}>
+                                                  End Game Now
+                                              </Button>
+                                          </ButtonGroup>
+                                      </div>
+                                  )}
+                              </>
+                          )}
+                          {/* Message if TX not confirmed */}
                           {!raffleState.txConfirmed && (
                               <p className="text-muted">Please wait for transaction confirmation before drawing numbers.</p>
                           )}

@@ -162,13 +162,22 @@ app.post('/api/upload-participants', upload.single('participantFile'), async (re
 
 // --- 2. Check Transaction & Initialize Game --- 
 app.post('/api/check-transaction', async (req, res) => {
-  const { txid, participantFilename } = req.body;
-  console.log(`[Check TX] Received request for TXID: ${txid}, Filename: ${participantFilename}`);
+  const { txid, participantFilename, gameMode } = req.body;
+  console.log(`[Check TX] Received request for TXID: ${txid}, Filename: ${participantFilename}, Mode: ${gameMode}`);
 
   // Basic validation
   if (!txid || !participantFilename) {
     return res.status(400).json({ message: 'Missing txid or participantFilename in request body.' });
   }
+
+  // --- ADD Game Mode Validation ---
+  const validGameModes = ['partialAndFull', 'fullCardOnly'];
+  if (!gameMode || !validGameModes.includes(gameMode)) {
+    console.warn(`[Check TX] Invalid or missing gameMode provided: ${gameMode}. Defaulting to 'fullCardOnly'.`);
+    // Allow default for now, or return error? Let's return error for clarity.
+    return res.status(400).json({ message: `Invalid or missing gameMode. Must be one of: ${validGameModes.join(', ')}` });
+  }
+  // --- End Game Mode Validation ---
 
   // Revert to direct fs.existsSync check
   const uploadsDir = path.join(__dirname, 'uploads');
@@ -248,9 +257,14 @@ app.post('/api/check-transaction', async (req, res) => {
         nextDerivationIndex: 0, 
         gmToken: initialGmToken, // Store the generated GM token
         lastDrawTime: null,
-        creationTime: Date.now(),
-        isOver: false, // NEW: Track if the game has a winner
-        winners: [] // NEW: Store usernames of winners
+        // --- NEW Game Mode Fields ---
+        gameMode: gameMode, // <-- USE gameMode from request body
+        partialWinOccurred: false,
+        partialWinners: null,
+        fullCardWinners: null,
+        // --- End NEW Fields ---
+        isOver: false,
+        winners: [] // Keep existing winners for now, might adjust later
     });
     console.log(`[Check TX] Game state for ${txid} successfully initialized with ${allCards.length} cards.`);
     
@@ -379,37 +393,148 @@ app.post('/api/draw/:txid', (req, res) => {
 
   console.log(`[Draw] Successfully drawn number ${drawnNumber} for game ${txid} (using derivation index ${index + attempts - 1}). Next index: ${gameState.nextDerivationIndex}`);
 
-  // --- Check for Winner(s) after draw ---
-  let currentWinnersData = [];
-  if (gameState.drawnNumbers.length >= 5) { // Minimum numbers needed for a potential win
-      gameState.cards.forEach(card => {
-          const winningSequence = utils.checkWinCondition(card.grid, gameState.drawnNumbers);
-          if (winningSequence) { // checkWinCondition now returns sequence or null
-              currentWinnersData.push({ username: card.username, sequence: winningSequence, cardId: card.cardId });
-          }
-      });
-  }
+  // --- NEW: Refactored Winner Check based on Game Mode ---
+  let hasLineWin = false;
+  let hasFullCardWin = false;
+  let currentLineWinners = [];
+  let currentFullCardWinners = [];
 
-  if (currentWinnersData.length > 0) {
+  // Only check for wins if enough numbers are drawn
+  const drawnNumbersSet = new Set(gameState.drawnNumbers); // Use Set for efficient lookups
+
+  if (gameState.gameMode === 'fullCardOnly') {
+    currentFullCardWinners = []; // <-- Reset before checking
+    if (drawnNumbersSet.size >= 24) { // Min numbers for full card win
+      for (const card of gameState.cards) {
+        if (utils.checkFullCardWin(card.grid, drawnNumbersSet)) {
+          hasFullCardWin = true;
+          currentFullCardWinners.push({ 
+              username: card.username, 
+              cardId: card.cardId, 
+              // No specific sequence for full card win
+              sequence: 'Full Card' 
+          });
+        }
+      }
+    }
+    if (hasFullCardWin) {
       gameState.isOver = true;
-      gameState.winners = currentWinnersData; // Store the array of {username, sequence} objects
-      const winnerNames = currentWinnersData.map(w => w.username);
-      console.log(`[Draw] Game ${txid} finished! Winners: ${winnerNames.join(', ')}`);
-  }
-  // --- End Winner Check ---
+      gameState.fullCardWinners = currentFullCardWinners; 
+      console.log(`[Draw][FullCardOnly] Game ${txid} finished! Winners: ${currentFullCardWinners.map(w => w.username).join(', ')}`);
+    }
+  } else { // gameMode === 'partialAndFull'
+    // --- Phase 1: Check for Line Win (if partial win hasn't happened yet) --- 
+    if (!gameState.partialWinOccurred && drawnNumbersSet.size >= 5) {
+      currentLineWinners = []; // <-- Reset before checking
+      for (const card of gameState.cards) {
+        const winningSequence = utils.checkLineWin(card.grid, drawnNumbersSet);
+        if (winningSequence) {
+          hasLineWin = true;
+          currentLineWinners.push({ 
+              username: card.username, 
+              cardId: card.cardId, 
+              sequence: winningSequence
+          });
+        }
+      }
+      if (hasLineWin) {
+        console.log(`[Draw][Partial Check] Found ${currentLineWinners.length} partial winner(s) in this draw.`);
+        gameState.partialWinOccurred = true;
+        gameState.partialWinners = currentLineWinners;
+        // DO NOT set isOver here
+        console.log(`[Draw][PartialAndFull] Partial Win Detected! Winners: ${currentLineWinners.map(w => w.username).join(', ')}. Game continues.`);
+      }
+    }
 
+    // --- Phase 2: Check for Full Card Win (only if partial win has occurred) --- 
+    if (gameState.partialWinOccurred && drawnNumbersSet.size >= 24) {
+      currentFullCardWinners = []; // <-- Reset before checking
+      for (const card of gameState.cards) {
+        if (utils.checkFullCardWin(card.grid, drawnNumbersSet)) {
+          hasFullCardWin = true;
+          currentFullCardWinners.push({ 
+              username: card.username, 
+              cardId: card.cardId, 
+              sequence: 'Full Card' 
+          });
+        }
+      }
+      if (hasFullCardWin) {
+        gameState.isOver = true;
+        gameState.fullCardWinners = currentFullCardWinners;
+        console.log(`[Draw][PartialAndFull] Full Card Win Detected! Game ${txid} finished! Winners: ${currentFullCardWinners.map(w => w.username).join(', ')}`);
+      }
+    }
+  }
+  // --- End NEW Winner Check ---
+
+  // --- Update Response Payload --- 
   const responsePayload = {
     message: 'Number drawn successfully!',
     drawnNumber: drawnNumber,
     totalDrawn: gameState.drawnNumbers.length,
     nextDerivationIndex: gameState.nextDerivationIndex,
     isOver: gameState.isOver,
-    winners: gameState.winners // This now includes the sequences
+    // Include new state fields
+    gameMode: gameState.gameMode,
+    partialWinOccurred: gameState.partialWinOccurred,
+    partialWinners: gameState.partialWinners,
+    fullCardWinners: gameState.fullCardWinners,
+    // Keep the old winners field for backward compatibility? Decide later. 
+    // For now, removing it to avoid confusion.
+    // winners: gameState.winners // REMOVED - Use specific winner fields
   };
 
   res.status(200).json(responsePayload);
 });
 
+// --- NEW: End Game Manually (GM Only, for Partial Win Scenario) ---
+app.post('/api/end-game/:txid', (req, res) => {
+  const { txid } = req.params;
+  const gameState = gameStates.get(txid);
+
+  console.log(`[End Game] Request received for game ${txid}`);
+
+  if (!gameState) {
+    console.warn(`[End Game] Game state not found for ${txid}`);
+    return res.status(404).json({ message: 'Game not found.' });
+  }
+
+  // GM Token Verification (Same as /api/draw)
+  const authHeader = req.headers.authorization;
+  const providedToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  if (!providedToken) {
+      console.warn(`[End Game] Missing GM token for game ${txid}`);
+      return res.status(401).json({ message: 'Authorization token required.'});
+  }
+  if (providedToken !== gameState.gmToken) {
+      console.warn(`[End Game] Invalid GM token provided for game ${txid}.`);
+      return res.status(403).json({ message: 'Invalid authorization token.' });
+  }
+  console.log(`[End Game] GM token verified for ${txid}`);
+
+  // Check if game is already over
+  if (gameState.isOver) {
+    console.log(`[End Game] Game ${txid} is already over.`);
+    return res.status(400).json({ message: 'Game is already over.' });
+  }
+
+  // Check if it's in the correct mode and state for ending
+  if (gameState.gameMode !== 'partialAndFull' || !gameState.partialWinOccurred) {
+     console.log(`[End Game] Game ${txid} is not in a state that can be ended manually (Mode: ${gameState.gameMode}, Partial Win: ${gameState.partialWinOccurred}).`);
+     return res.status(400).json({ message: 'Game can only be ended manually after a partial win in PartialAndFull mode.' });
+  }
+
+  // Set the game as over
+  gameState.isOver = true;
+  console.log(`[End Game] Game ${txid} has been manually set to ended by GM.`);
+
+  res.status(200).json({
+    message: 'Game successfully ended by Game Master.',
+    isOver: true,
+    partialWinners: gameState.partialWinners // Return the winners determined so far
+  });
+});
 
 // --- 4. Get Game State (Player & GM) ---
 app.get('/api/game-state/:txid', async (req, res) => {
@@ -428,36 +553,70 @@ app.get('/api/game-state/:txid', async (req, res) => {
 
   // --- Calculate Statistics --- 
   let statistics = "Statistics not available yet."; // Default to string
-  if (gameState.cards && gameState.cards.length > 0 && gameState.drawnNumbers.length > 0) {
-      // Calculate the max marked in any line for each card
-      const maxInLineCounts = gameState.cards.map(card => {
-          return utils.calculateMaxMarkedInLine(card.grid, gameState.drawnNumbers);
-      });
 
-      // Count how many players have each 'max marked in line' value
-      const countsMap = maxInLineCounts.reduce((acc, count) => {
-          // Only include counts >= 2 (less than 2 isn't very informative)
-          if (count >= 2) { 
-              acc[count] = (acc[count] || 0) + 1;
+  // Check if we should calculate stats (only if cards exist and numbers drawn)
+  const shouldCalculateStats = gameState.cards && gameState.cards.length > 0 && gameState.drawnNumbers.length > 0;
+
+  if (shouldCalculateStats) {
+      const drawnNumbersSet = new Set(gameState.drawnNumbers); // Use Set for efficiency
+
+      // --- NEW: Conditional Stats Calculation ---
+      if (gameState.gameMode === 'partialAndFull' && gameState.partialWinOccurred) {
+          // --- Calculate Full Card Progress Stats --- 
+          console.log('[State] Calculating Full Card progress statistics...');
+          const markedCounts = gameState.cards.map(card => {
+              // Need a function to count total marked numbers (excluding free space)
+              return utils.countMarkedDrawnNumbers(card.grid, drawnNumbersSet); // Assuming this function exists/is added
+          });
+
+          const countsMap = markedCounts.reduce((acc, count) => {
+              if (count > 0) { // Only track cards with at least one mark
+                  acc[count] = (acc[count] || 0) + 1;
+              }
+              return acc;
+          }, {});
+
+          const sortedCounts = Object.entries(countsMap)
+              .map(([markedNum, playerCount]) => ({ markedNum: parseInt(markedNum, 10), playerCount }))
+              .sort((a, b) => b.markedNum - a.markedNum); // Sort by most marked descending
+
+          if (sortedCounts.length > 0) {
+              statistics = sortedCounts.map(stat => 
+                `${stat.playerCount} player${stat.playerCount > 1 ? 's' : ''} ${stat.playerCount > 1 ? 'have' : 'has'} ${stat.markedNum} number${stat.markedNum > 1 ? 's' : ''} marked`
+              ).join('\n');
+          } else {
+              statistics = "No players have marked any numbers towards a full card yet.";
           }
-          return acc;
-      }, {});
 
-      const sortedCounts = Object.entries(countsMap)
-          .map(([markedNum, playerCount]) => ({ markedNum: parseInt(markedNum, 10), playerCount }))
-          .sort((a, b) => b.markedNum - a.markedNum); // Sort by max marked in line descending
-
-      const topStats = sortedCounts; // Show all relevant groups (>=2 marks in a line)
-
-      if (topStats.length > 0) {
-        // Updated formatting to reflect max marks in a line
-        statistics = topStats.map(stat => 
-          `${stat.playerCount} player${stat.playerCount > 1 ? 's' : ''} ${stat.playerCount > 1 ? 'have' : 'has'} a line with ${stat.markedNum} mark${stat.markedNum > 1 ? 's' : ''}`
-        ).join('\n');
       } else {
-        // Adjust message if no one has at least 2 in a line yet
-        statistics = "No players have 2 or more marks in a line yet."; 
+          // --- Calculate Line Progress Stats (Original Logic) --- 
+          console.log('[State] Calculating Line progress statistics...');
+          const maxInLineCounts = gameState.cards.map(card => {
+              return utils.calculateMaxMarkedInLine(card.grid, drawnNumbersSet); // Pass Set here
+          });
+
+          const countsMap = maxInLineCounts.reduce((acc, count) => {
+              if (count >= 2) { 
+                  acc[count] = (acc[count] || 0) + 1;
+              }
+              return acc;
+          }, {});
+
+          const sortedCounts = Object.entries(countsMap)
+              .map(([markedNum, playerCount]) => ({ markedNum: parseInt(markedNum, 10), playerCount }))
+              .sort((a, b) => b.markedNum - a.markedNum);
+
+          const topStats = sortedCounts;
+
+          if (topStats.length > 0) {
+            statistics = topStats.map(stat => 
+              `${stat.playerCount} player${stat.playerCount > 1 ? 's' : ''} ${stat.playerCount > 1 ? 'have' : 'has'} a line with ${stat.markedNum} mark${stat.markedNum > 1 ? 's' : ''}`
+            ).join('\n');
+          } else {
+            statistics = "No players have 2 or more marks in a line yet."; 
+          }
       }
+      // --- End Conditional Stats Calculation ---
   }
   // --- End Statistics Calculation ---
 
@@ -467,7 +626,13 @@ app.get('/api/game-state/:txid', async (req, res) => {
     drawSequenceLength: gameState.drawSequence.length, // Maybe useful for verification?
     lastDrawTime: gameState.lastDrawTime,
     isOver: gameState.isOver,
-    winners: gameState.winners,
+    // Add new game mode fields
+    gameMode: gameState.gameMode,
+    partialWinOccurred: gameState.partialWinOccurred,
+    partialWinners: gameState.partialWinners,
+    fullCardWinners: gameState.fullCardWinners,
+    // Remove old combined winners field if present
+    // winners: gameState.winners, // REMOVED
     statistics: statistics // Include formatted statistics
   });
 });

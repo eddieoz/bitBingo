@@ -15,11 +15,20 @@ const fetchGameState = async (txid: string): Promise<GameState> => {
   const url = `${baseUrl}/api/game-state/${txid}`; // Explicitly add /api path
   console.log(`Fetching game state from: ${url}`); // Log the absolute URL
   const { data } = await axios.get(url);
-  // Ensure drawnNumbers and winners are always arrays
+  // Parse all expected fields, providing defaults
   return { 
-      ...data, 
       drawnNumbers: data.drawnNumbers || [], 
-      winners: data.winners || [] // Ensure winners is also defaulted to empty array
+      drawIndex: data.drawIndex ?? 0, // Add drawIndex, default to 0 if missing
+      isOver: data.isOver || false,
+      gameMode: data.gameMode || 'fullCardOnly', // Default if missing
+      partialWinOccurred: data.partialWinOccurred || false,
+      partialWinners: data.partialWinners || null,
+      fullCardWinners: data.fullCardWinners || null,
+      // Add other fields if needed by the component, e.g., status, lastDrawTime
+      status: data.status || 'unknown',
+      lastDrawTime: data.lastDrawTime || null,
+      statistics: data.statistics || '', // Include stats even though player page doesn't show them?
+      winners: null // Explicitly return null for optional 'winners' field
   };
 };
 
@@ -45,9 +54,9 @@ interface PlayPageProps {
 
 // Update component definition to accept props
 export default function PlayPage({ params }: PlayPageProps) {
-  // Resolve params using the use() hook
+  // Resolve params using the use() hook - REVERTED
   const resolvedParams = use(params);
-  // Assert the type after using the hook
+  // Assert the type after using the hook - REVERTED
   const { txid } = resolvedParams as { txid: string }; 
   
   const queryClient = useQueryClient();
@@ -81,11 +90,29 @@ export default function PlayPage({ params }: PlayPageProps) {
     refetchIntervalInBackground: true,
   });
 
-  // Determine if the current user is a winner and get their winning sequence
-  const currentUserWinnerInfo = userSession && gameState?.isOver && gameState.winners 
-    ? gameState.winners.find(winner => winner.username.toLowerCase() === userSession.nickname.toLowerCase())
+  // Find if user is among final winners (full or partial if game ended)
+  const finalWinners = gameState?.isOver ? (gameState.fullCardWinners || gameState.partialWinners) : null;
+  const currentUserFinalWinnerInfo = userSession && finalWinners
+    ? finalWinners.find(winner => winner.username.toLowerCase() === userSession.nickname.toLowerCase())
     : null;
-  const winningSequence = currentUserWinnerInfo ? currentUserWinnerInfo.sequence : null;
+
+  // Find if user is among partial winners (if game hasn't ended)
+  const currentUserPartialWinnerInfo = userSession && !gameState?.isOver && gameState?.partialWinOccurred && gameState.partialWinners
+    ? gameState.partialWinners.find(winner => winner.username.toLowerCase() === userSession.nickname.toLowerCase())
+    : null;
+
+  // Determine the sequence to highlight (prioritize final win, then partial)
+  let winningSequence: (number | null)[] | null = null;
+  if (currentUserFinalWinnerInfo) {
+    if (typeof currentUserFinalWinnerInfo.sequence !== 'string') {
+      winningSequence = currentUserFinalWinnerInfo.sequence as (number | null)[];
+    }
+  } else if (currentUserPartialWinnerInfo) {
+    winningSequence = currentUserPartialWinnerInfo.sequence as (number | null)[];
+  }
+
+  // Filter out nulls for the prop, as UserCardsDisplay expects number[] | null
+  const sequenceForProp = winningSequence ? winningSequence.filter((n): n is number => n !== null) : null;
 
   if (!txid) {
     // This check might be less necessary with App Router structure
@@ -97,17 +124,52 @@ export default function PlayPage({ params }: PlayPageProps) {
       <h1 className="text-3xl font-bold mb-4">bitBingo Game</h1>
       <p className="mb-1">Game Transaction ID: <strong>{txid}</strong></p>
 
-      {/* Winner Announcement Banner - Updated */} 
-      {gameState?.isOver && gameState.winners && gameState.winners.length > 0 && (
+      {/* --- FINAL Winner Announcement Banner --- */}
+      {gameState?.isOver && (gameState.fullCardWinners || gameState.partialWinners) && (
         <Alert variant="success" className="mt-3 mb-4">
-          <Alert.Heading className="text-center">BINGO! We have a winner{gameState.winners.length > 1 ? 's' : ''}!</Alert.Heading>
+          <Alert.Heading className="text-center">Game Over!</Alert.Heading>
           <hr />
-          {gameState.winners.map((winner, index) => (
-            <div key={index} className="mb-2 text-center">
-              <p className="mb-0 lead"><strong>{winner.username}</strong> (Card ID: {winner.cardId})</p>
-              <small className="text-muted">Sequence: {winner.sequence.join(', ')}</small>
-            </div>
-          ))}
+          {/* Display Partial Winners if they exist */} 
+          {gameState.partialWinners && gameState.partialWinners.length > 0 && (
+              <div className="mb-3 text-center">
+                  <p className="mb-1"><strong>Partial Winner{gameState.partialWinners.length > 1 ? 's' : ''} (Line Win):</strong></p>
+                  {gameState.partialWinners.map((winner, index) => (
+                    <div key={`p-${index}`} className="small">
+                      <span>{winner.username} (Card: {winner.cardId}) - Sequence: {winner.sequence.map(n => n === null ? 'FREE' : n).join(', ')}</span>
+                    </div>
+                  ))}
+              </div>
+          )}
+          {/* Display Full Card Winners if they exist */} 
+          {gameState.fullCardWinners && gameState.fullCardWinners.length > 0 && (
+              <div className="text-center">
+                  <p className="mb-1"><strong>Full Card Winner{gameState.fullCardWinners.length > 1 ? 's' : ''}:</strong></p>
+                  {gameState.fullCardWinners.map((winner, index) => (
+                    <div key={`f-${index}`} className="small">
+                       <span>{winner.username} (Card: {winner.cardId}) - Sequence: {winner.sequence}</span>
+                    </div>
+                  ))}
+              </div>
+          )}
+        </Alert>
+      )}
+
+      {/* --- PARTIAL Winner Announcement Banner --- */}
+      {!gameState?.isOver && gameState?.partialWinOccurred && gameState?.partialWinners && gameState.partialWinners.length > 0 && (
+        <Alert variant="warning" className="mt-3 mb-4">
+          <Alert.Heading className="text-center">Partial Win Detected!</Alert.Heading>
+          <hr />
+          {gameState.partialWinners?.map((winner, index) => { 
+            const sequenceStr = winner.sequence.map(n => n === null ? 'FREE' : n).join(', ');
+            return (
+              <div key={index} className="mb-2 text-center">
+                <p className="mb-0"><strong>{winner.username}</strong> (Card ID: {winner.cardId})</p>
+                <small className="text-muted">Winning Sequence: {sequenceStr}</small>
+              </div>
+            );
+          })}
+          <hr />
+          <p className="text-center mb-0">The game continues towards a Full Card win!</p>
         </Alert>
       )}
 
@@ -151,7 +213,7 @@ export default function PlayPage({ params }: PlayPageProps) {
            <UserCardsDisplay 
               cards={userSession.cards} 
               drawnNumbers={gameState?.drawnNumbers || []} 
-              winningSequence={winningSequence}
+              winningSequence={sequenceForProp}
            />
            <Button 
               onClick={handleLogout}

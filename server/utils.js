@@ -450,84 +450,81 @@ function calculateMaxMarkedInLine(grid, drawnNumbers) {
 // --- NEW: Check for Win Condition (Corrected for Column-Object Grid) ---
 // Renamed from checkBingo
 /**
- * Checks if a bingo card has a winning line based on drawn numbers.
- * @param {object} grid The bingo card grid.
- * @param {number[]} drawnNumbers Array of drawn numbers.
- * @returns {(number | string)[] | null} An array representing the winning line 
- * (numbers and/or the string "FREE") or null if no win.
+ * Checks if a bingo card has achieved a win (horizontal, vertical, or diagonal line).
+ * Includes the free space.
+ * 
+ * @param {object} grid - The bingo card grid.
+ * @param {Set<number>} drawnNumbersSet - A Set containing the numbers drawn so far.
+ * @returns {Array<number|null>|null} The winning line (sequence of numbers/null) if a win exists, otherwise null.
  */
-function checkWinCondition(grid, drawnNumbers) {
-    const drawnSet = new Set(drawnNumbers);
-    const size = 5;
+function checkLineWin(grid, drawnNumbersSet) {
+  console.log(`[Win Check] Checking for line win... Drawn count: ${drawnNumbersSet.size}`);
 
-    if (!grid || !drawnSet) return null;
+  const B = grid.B;
+  const I = grid.I;
+  const N = grid.N;
+  const G = grid.G;
+  const O = grid.O;
 
-    // Helper to check if a cell is marked and return its value (number or "FREE")
-    const getMarkedValue = (colLetter, rowIndex) => {
-        const number = grid[colLetter]?.[rowIndex];
-        if (colLetter === 'N' && rowIndex === 2) return "FREE"; // Free space marked as string
-        if (number !== null && number !== undefined && drawnSet.has(number)) {
-            return number;
-        }
-        return undefined; // Indicate not marked or not drawn
-    };
+  const drawnNumbers = Array.from(drawnNumbersSet);
 
-    // Check rows
-    for (let r = 0; r < size; r++) {
-        const winningLine = [];
-        let rowComplete = true;
-        for (let c = 0; c < size; c++) {
-            const markedValue = getMarkedValue(columns[c], r);
-            if (markedValue === undefined) {
-                rowComplete = false;
-                break;
-            }
-            winningLine.push(markedValue); // Add number or "FREE"
-        }
-        if (rowComplete) return winningLine;
+  // Check rows
+  for (let i = 0; i < 5; i++) {
+    const row = [B[i], I[i], N[i], G[i], O[i]];
+    if (row.every(num => drawnNumbers.includes(num) || num === null)) {
+      return row;
     }
+  }
 
-    // Check columns
-    for (let c = 0; c < size; c++) {
-        const winningLine = [];
-        let colComplete = true;
-        for (let r = 0; r < size; r++) {
-            const markedValue = getMarkedValue(columns[c], r);
-            if (markedValue === undefined) {
-                colComplete = false;
-                break;
-            }
-            winningLine.push(markedValue);
-        }
-        if (colComplete) return winningLine;
+  // Check columns
+  for (let i = 0; i < 5; i++) {
+    const column = [B[i], I[i], N[i], G[i], O[i]];
+    if (column.every(num => drawnNumbers.includes(num) || num === null)) {
+      return column;
     }
+  }
 
-    // Check diagonals
-    let diag1Complete = true;
-    const diag1Line = [];
-    for (let i = 0; i < size; i++) {
-        const markedValue = getMarkedValue(columns[i], i);
-        if (markedValue === undefined) {
-            diag1Complete = false;
-            break;
-        }
-        diag1Line.push(markedValue);
+  // Check diagonals
+  const diag1 = [B[0], I[1], N[2], G[3], O[4]];
+  const diag2 = [B[4], I[3], N[2], G[1], O[0]];
+  if (diag1.every(num => drawnNumbers.includes(num) || num === null) || diag2.every(num => drawnNumbers.includes(num) || num === null)) {
+    return diag1.length > diag2.length ? diag1 : diag2;
+  }
+
+  return null; // No win found
+}
+
+/**
+ * Checks if a bingo card has achieved a full card win (all 24 non-free numbers marked).
+ * 
+ * @param {object} grid - The bingo card grid.
+ * @param {Set<number>} drawnNumbersSet - A Set containing the numbers drawn so far.
+ * @returns {boolean} True if all numbers on the card (excluding free space) are in drawnNumbersSet, false otherwise.
+ */
+function checkFullCardWin(grid, drawnNumbersSet) {
+  console.log(`[Win Check] Checking for full card win... Drawn count: ${drawnNumbersSet.size}`);
+  if (drawnNumbersSet.size < 24) {
+    // Optimization: Impossible to have a full card win with fewer than 24 numbers drawn.
+    return false;
+  }
+
+  for (const colLetter of ['B', 'I', 'N', 'G', 'O']) {
+    const column = grid[colLetter];
+    for (let i = 0; i < column.length; i++) {
+      const number = column[i];
+      // Skip the free space (N[2] is null)
+      if (number === null) continue;
+      
+      // If any non-null number is *not* in the drawn set, it's not a full card win.
+      if (!drawnNumbersSet.has(number)) {
+        return false;
+      }
     }
-    if (diag1Complete) return diag1Line;
+  }
 
-    let diag2Complete = true;
-    const diag2Line = [];
-    for (let i = 0; i < size; i++) {
-        const markedValue = getMarkedValue(columns[i], size - 1 - i);
-        if (markedValue === undefined) {
-            diag2Complete = false;
-            break;
-        }
-        diag2Line.push(markedValue);
-    }
-    if (diag2Complete) return diag2Line;
-
-    return null; // No win found
+  // If we looped through all columns and all numbers (except null) were found in the set, it's a win.
+  console.log(`[Win Check] Full card win confirmed!`);
+  return true;
 }
 
 module.exports = {
@@ -541,5 +538,6 @@ module.exports = {
   countMarkedNumbers,
   countMarkedDrawnNumbers,
   calculateMaxMarkedInLine,
-  checkWinCondition
+  checkLineWin,
+  checkFullCardWin
 }; 
