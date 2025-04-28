@@ -99,3 +99,5 @@ fix(test): Update BingoCard mock in UserCardsDisplay test to handle extra args.
 fix(test): Use mock.calls assertion in UserCardsDisplay test to ignore extra args. 
 
 docs: Update tasks.md to reflect completed UserCardsDisplay prop drilling test.
+
+feat: Implement Full Card / Partial Win modes (backend state, logic, frontend UI, stats).
