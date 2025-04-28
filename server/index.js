@@ -108,7 +108,6 @@ function calculateStatistics(gameState) {
   }
 
   if (useFullCardStats) {
-      console.log('[Stats Calc] Calculating Full Card progress statistics...');
       const markedCounts = gameState.cards.map(card => utils.countMarkedDrawnNumbers(card.grid, drawnNumbersSet));
       const countsMap = markedCounts.reduce((acc, count) => {
           if (count > 0) { acc[count] = (acc[count] || 0) + 1; }
@@ -125,7 +124,6 @@ function calculateStatistics(gameState) {
           statistics = "No players have marked any numbers yet.";
       }
   } else {
-      console.log('[Stats Calc] Calculating Line progress statistics...');
       const maxInLineCounts = gameState.cards.map(card => utils.calculateMaxMarkedInLine(card.grid, drawnNumbersSet));
       const countsMap = maxInLineCounts.reduce((acc, count) => {
           if (count >= 2) { acc[count] = (acc[count] || 0) + 1; }
@@ -493,10 +491,8 @@ app.post('/api/draw/:txid', (req, res) => {
       }
       // Check if the loop actually found any winners
       if (currentLineWinners.length > 0) {
-        console.log(`[Draw][Partial Check] Found ${currentLineWinners.length} partial winner(s) in this draw.`);
         gameState.partialWinOccurred = true;
         gameState.partialWinners = currentLineWinners;
-        // DO NOT set isOver here
         console.log(`[Draw][PartialAndFull] Partial Win Detected! Winners: ${currentLineWinners.map(w => w.username).join(', ')}. Game continues.`);
       }
     }

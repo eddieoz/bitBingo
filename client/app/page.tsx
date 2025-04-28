@@ -319,11 +319,9 @@ export default function AdminHomePage() { // Renamed back to default export
         const partialWinJustOccurred = response.data.partialWinOccurred && !partialWinOccurred; // Check against current state
 
         if (gameEnded || partialWinJustOccurred) {
-           console.log('[Draw Handler] Game ended or partial win occurred. Updating local state from draw response...');
            const newStats = response.data.statistics; // Get stats from draw response
 
            if (gameEnded) {
-               console.log('[Draw Handler] Game Ended. Updating local state.');
                setDrawnNumbers(prev => [...prev, response.data.drawnNumber]);
                setIsGameOver(true);
                setWinners(response.data.fullCardWinners || response.data.partialWinners || []); 
@@ -333,16 +331,12 @@ export default function AdminHomePage() { // Renamed back to default export
                if (newStats) setStatistics(newStats); // Update stats immediately
                stopPolling(); // Stop polling now, we have final state
            } else if (partialWinJustOccurred) {
-               console.log('[Draw Handler] Partial win occurred. Updating local state.');
                setDrawnNumbers(prev => [...prev, response.data.drawnNumber]);
                setPartialWinOccurred(true);
                setPartialWinners(response.data.partialWinners || []);
                if (newStats) setStatistics(newStats); // Update stats immediately
-               // Don't stop polling here, game continues
            }
         } else {
-            // If nothing significant changed state-wise (no win, no end), just fetch normally
-            console.log('[Draw Handler] No win/end this draw, fetching normal state...');
             fetchCurrentGameState(raffleState.txId);
         }
         
