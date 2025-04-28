@@ -2,8 +2,8 @@
 
 import React, { useState, use } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserLogin } from '@/components/UserLogin';
-import UserCardsDisplay from '@/components/user-cards-display/UserCardsDisplay';
+import { UserLogin } from '../../../src/components/UserLogin';
+import UserCardsDisplay from '../../../src/components/user-cards-display/UserCardsDisplay';
 import type { UserCardData, GameState, UserSession, GameStateStat, WinnerInfo } from '@/types/index';
 import axios from 'axios';
 import { Container, Alert, Badge, Button } from 'react-bootstrap';
@@ -54,10 +54,7 @@ interface PlayPageProps {
 
 // Update component definition to accept props
 export default function PlayPage({ params }: PlayPageProps) {
-  // Resolve params using the use() hook - REVERTED
-  const resolvedParams = use(params);
-  // Assert the type after using the hook - REVERTED
-  const { txid } = resolvedParams as { txid: string }; 
+  const { txid } = params;
   
   const queryClient = useQueryClient();
   const [userSession, setUserSession] = useState<UserSession | null>(null);

@@ -75,7 +75,7 @@ export function UserLogin({ txid, onLoginSuccess, onLoginError }) {
       <Button variant="primary" type="submit" disabled={isLoading}>
         {isLoading ? (
           <>
-            <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+            <Spinner as="span" animation="border" size="sm" role="status" className="me-2" />
             Logging In...
           </>
         ) : (

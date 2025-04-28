@@ -17,6 +17,7 @@ function App() {
   // For now, just removing the Router setup.
   return (
     <div className="App">
+      <h1>bitBingo</h1>
       {/* Removed Nav Links */}
       {/* Removed <Routes> block */}
       {/* Removed <Footer /> */}

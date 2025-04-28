@@ -154,4 +154,91 @@ describe('UserLogin Component', () => {
         // We also don't need to wait for the neverResolvingPromise to settle.
     });
 
+});
+
+describe('UserLogin Component - Additional BDD Scenarios', () => {
+    const validTxid = '6a37d795e771aa88e9e9302dab8edecc9bacf7c77e18c822c6d249e8559fc002';
+    const mockOnLoginSuccess = vi.fn();
+    const mockOnLoginError = vi.fn();
+    const validNickname = 'testuser';
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockOnLoginSuccess.mockClear();
+        mockOnLoginError.mockClear();
+    });
+
+    test('Scenario: Invalid TXID - should call onLoginError with appropriate message', async () => {
+        // The component always returns 'Login failed. Please try again.' for backend 404 errors (see UserLogin.jsx)
+        const errorMessage = 'Login failed. Please try again.';
+        vi.mocked(axios.get).mockRejectedValue({ response: { status: 404, data: { message: 'Invalid transaction ID' } } });
+        render(
+            <UserLogin 
+                txid={'invalid-txid'} 
+                onLoginSuccess={mockOnLoginSuccess} 
+                onLoginError={mockOnLoginError} 
+            />
+        );
+        fireEvent.change(screen.getByLabelText(/nickname/i), { target: { value: validNickname } });
+        fireEvent.click(screen.getByRole('button', { name: /view my cards/i }));
+        await waitFor(() => {
+            expect(mockOnLoginError).toHaveBeenCalledWith(errorMessage);
+            expect(mockOnLoginSuccess).not.toHaveBeenCalled();
+        });
+    });
+
+    test('Scenario: Nickname Not Found - should call onLoginError with generic message', async () => {
+        // The component always returns 'Login failed. Please try again.' for backend 404 errors (see UserLogin.jsx)
+        const errorMessage = 'Login failed. Please try again.';
+        vi.mocked(axios.get).mockRejectedValue({ response: { status: 404, data: { message: 'Nickname not found' } } });
+        render(
+            <UserLogin 
+                txid={validTxid} 
+                onLoginSuccess={mockOnLoginSuccess} 
+                onLoginError={mockOnLoginError} 
+            />
+        );
+        fireEvent.change(screen.getByLabelText(/nickname/i), { target: { value: 'unknownuser' } });
+        fireEvent.click(screen.getByRole('button', { name: /view my cards/i }));
+        await waitFor(() => {
+            expect(mockOnLoginError).toHaveBeenCalledWith(errorMessage);
+            expect(mockOnLoginSuccess).not.toHaveBeenCalled();
+        });
+    });
+
+    test('Scenario: API/Network Error - should call onLoginError with generic error message', async () => {
+        const errorMessage = 'Network Error';
+        vi.mocked(axios.get).mockRejectedValue(new Error(errorMessage));
+        render(
+            <UserLogin 
+                txid={validTxid} 
+                onLoginSuccess={mockOnLoginSuccess} 
+                onLoginError={mockOnLoginError} 
+            />
+        );
+        fireEvent.change(screen.getByLabelText(/nickname/i), { target: { value: validNickname } });
+        fireEvent.click(screen.getByRole('button', { name: /view my cards/i }));
+        await waitFor(() => {
+            expect(mockOnLoginError).toHaveBeenCalledWith(errorMessage);
+            expect(mockOnLoginSuccess).not.toHaveBeenCalled();
+        });
+    });
+
+    test('Scenario: Input Validation - should not call API or callbacks if nickname is empty', async () => {
+        render(
+            <UserLogin 
+                txid={validTxid} 
+                onLoginSuccess={mockOnLoginSuccess} 
+                onLoginError={mockOnLoginError} 
+            />
+        );
+        const loginButton = screen.getByRole('button', { name: /view my cards/i });
+        fireEvent.change(screen.getByLabelText(/nickname/i), { target: { value: '' } });
+        fireEvent.click(loginButton);
+        // Optionally, check for validation message in UI
+        expect(mockOnLoginSuccess).not.toHaveBeenCalled();
+        expect(mockOnLoginError).not.toHaveBeenCalled();
+        // Optionally, check for error message in the UI
+        // expect(screen.getByText(/please enter a nickname/i)).toBeInTheDocument();
+    });
 }); 
