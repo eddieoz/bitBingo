@@ -4,7 +4,7 @@ import { generateBingoCard } from '../utils'; // Import the function to test
 import { hashPublicKeyToNumber } from '../utils'; // Import the function to test
 import { generateAllCards } from '../utils'; // Import the function to test
 import { calculateMaxMarkedInLine } from '../utils'; // Import the function to test
-import { checkWinCondition } from '../utils'; // Import the function to test
+import { checkLineWin, checkFullCardWin } from '../utils'; // Import the win condition functions
 
 describe('derivePublicKey', () => {
   it('should return the correct public key for a given seed hash and index', () => {
@@ -366,72 +366,175 @@ describe('calculateMaxMarkedInLine', () => {
   });
 });
 
-describe('checkWinCondition', () => {
-  // Reuse the sample grid
+describe('checkLineWin', () => {
+  // Use the renamed checkLineWin function
+  // const { checkWinCondition } = require('../utils'); // Removed
+
+  // Grid setup remains the same
+  // ... (grid definition)
   const sampleGrid = {
     B: [1, 5, 10, 12, 15],
-    I: [16, 20, 25, 28, 30],
-    N: [31, 35, null, 40, 45], // N[2] is the free space
+    I: [16, 20, 22, 25, 30],
+    N: [31, 35, null, 40, 45],
     G: [46, 50, 55, 58, 60],
     O: [61, 65, 70, 72, 75],
   };
 
-  it('should return null when no winning line exists', () => { // Renamed from (TDD: Red)
-    // Given: Grid and drawn numbers that don't form a win
-    const drawnNumbers = [2, 3, 4, 17, 18, 32, 33, 47, 48, 62, 63]; // No number from row 0, max 4 in any line
-    
-    // When: checkWinCondition is called
-    const result = checkWinCondition(sampleGrid, drawnNumbers);
+  it('should return null when no winning line exists', () => {
+    // Given: Grid and drawn numbers with no winning line
+    const drawnNumbers = new Set([1, 17, 33, 48, 62, 70]); // No complete line
+
+    // When: checkLineWin is called
+    const result = checkLineWin(sampleGrid, drawnNumbers);
 
     // Then: The result should be null
     expect(result).toBeNull();
   });
 
   it('should return null for invalid inputs (Edge Case)', () => {
-     expect(checkWinCondition(null, [1, 2])).toBeNull();
-     expect(checkWinCondition(undefined, [1, 2])).toBeNull();
+     // Use checkLineWin for checks
+     expect(checkLineWin(null, new Set([1, 2]))).toBeNull();
+     expect(checkLineWin(undefined, new Set([1, 2]))).toBeNull();
      // Added more robust grid check
-     const invalidGrid = { B: [1,2], I: [3,4] }; // Missing columns/rows
-     expect(checkWinCondition(invalidGrid, [1, 2])).toBeNull(); 
-     expect(checkWinCondition(sampleGrid, null)).toBeNull();
-     expect(checkWinCondition(sampleGrid, undefined)).toBeNull();
-     expect(checkWinCondition(sampleGrid, [])).toBeNull(); // No numbers drawn yet
+     expect(checkLineWin({}, new Set([1, 2]))).toBeNull(); // Empty grid object
+     expect(checkLineWin({ B: [1], I: [], N: [], G: [], O: [] }, new Set([1, 2]))).toBeNull(); // Incomplete grid
+     expect(checkLineWin(sampleGrid, null)).toBeNull();
+     expect(checkLineWin(sampleGrid, undefined)).toBeNull();
+     expect(checkLineWin(sampleGrid, new Set())).toBeNull(); // Empty drawn set
   });
 
   it('should return the winning sequence for a horizontal win', () => {
     // Row 0 win
-    const drawn_r0 = [1, 16, 31, 46, 61, 99, 88]; // Extra numbers included
-    expect(checkWinCondition(sampleGrid, drawn_r0)).toEqual([1, 16, 31, 46, 61]);
+    const drawn_r0 = new Set([1, 16, 31, 46, 61, 99, 88]); // Extra numbers included
+    expect(checkLineWin(sampleGrid, drawn_r0)).toEqual([1, 16, 31, 46, 61]);
 
     // Row 2 win (includes FREE space)
-    const drawn_r2 = [10, 25, 55, 70, 100]; // B[2], I[2], N[2]=FREE, G[2], O[2]
-    expect(checkWinCondition(sampleGrid, drawn_r2)).toEqual([10, 25, 'FREE', 55, 70]);
+    const drawn_r2 = new Set([10, 22, 40, 55, 70, 3, 9]);
+    expect(checkLineWin(sampleGrid, drawn_r2)).toEqual([10, 22, null, 55, 70]);
   });
 
   it('should return the winning sequence for a vertical win', () => {
     // Column B win
-    const drawn_cB = [1, 5, 10, 12, 15, 99];
-    expect(checkWinCondition(sampleGrid, drawn_cB)).toEqual([1, 5, 10, 12, 15]);
+    const drawn_cB = new Set([1, 5, 10, 12, 15, 99]);
+    expect(checkLineWin(sampleGrid, drawn_cB)).toEqual([1, 5, 10, 12, 15]);
 
     // Column N win (includes FREE space)
-    const drawn_cN = [31, 35, 40, 45, 100]; // N[0], N[1], N[2]=FREE, N[3], N[4]
-    expect(checkWinCondition(sampleGrid, drawn_cN)).toEqual([31, 35, 'FREE', 40, 45]);
+    const drawn_cN = new Set([31, 35, 40, 45, 1, 2]);
+    expect(checkLineWin(sampleGrid, drawn_cN)).toEqual([31, 35, null, 40, 45]);
   });
 
   it('should return the winning sequence for a diagonal win', () => {
     // Diagonal 1 win (top-left to bottom-right)
-    const drawn_d1 = [1, 20, 58, 75, 99]; // B[0], I[1], N[2]=FREE, G[3], O[4]
-    expect(checkWinCondition(sampleGrid, drawn_d1)).toEqual([1, 20, 'FREE', 58, 75]);
+    // B[0]=1, I[1]=20, N[2]=null, G[3]=58, O[4]=75
+    const drawn_d1 = new Set([1, 20, 58, 75, 99]); // Corrected 55->58, added extras
+    expect(checkLineWin(sampleGrid, drawn_d1)).toEqual([1, 20, null, 58, 75]);
 
     // Diagonal 2 win (top-right to bottom-left)
-    const drawn_d2 = [15, 28, 50, 61, 100]; // B[4], I[3], N[2]=FREE, G[1], O[0]
-    expect(checkWinCondition(sampleGrid, drawn_d2)).toEqual([15, 28, 'FREE', 50, 61]);
+    // O[0]=61, G[1]=50, N[2]=null, I[3]=25, B[4]=15
+    const drawn_d2 = new Set([15, 25, 50, 61, 7]); // Corrected 55->50, added extras
+    expect(checkLineWin(sampleGrid, drawn_d2)).toEqual([15, 25, null, 50, 61]);
   });
 
   it('should return the first winning line found if multiple exist', () => {
-    // Row 0 AND Column B win
-    const drawn_multi = [1, 5, 10, 12, 15, 16, 31, 46, 61]; 
-    // Expect Row 0 because rows are checked before columns
-    expect(checkWinCondition(sampleGrid, drawn_multi)).toEqual([1, 16, 31, 46, 61]); 
+    // Both Row 0 and Column B win. Rows checked first.
+    const drawn_multi = new Set([1, 5, 10, 12, 15, 16, 31, 46, 61]);
+    // Expect Row 0 because rows are checked before columns/diagonals
+    expect(checkLineWin(sampleGrid, drawn_multi)).toEqual([1, 16, 31, 46, 61]);
+  });
+});
+
+// --- Tests for checkFullCardWin --- //
+describe('checkFullCardWin', () => {
+  // Use the checkFullCardWin function from utils
+  // const { checkFullCardWin } = require('../utils'); // Already imported above
+
+  // Helper grid (doesn't matter what numbers, just need the structure)
+  const sampleGrid = {
+    B: [1, 2, 3, 4, 5],
+    I: [16, 17, 18, 19, 20],
+    N: [31, 32, null, 34, 35],
+    G: [46, 47, 48, 49, 50],
+    O: [61, 62, 63, 64, 65],
+  };
+
+  // Helper function to flatten grid numbers (excluding null)
+  const flattenGrid = (grid) => {
+    return Object.values(grid).flat().filter(num => num !== null);
+  };
+
+  it('should return true if all numbers on the card (excluding free space) are in drawnNumbersSet', () => {
+    // Given: A grid and a Set containing all numbers from that grid
+    const allNumbers = flattenGrid(sampleGrid);
+    const drawnNumbersSet = new Set(allNumbers);
+    
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(sampleGrid, drawnNumbersSet);
+    
+    // Then: It should return true
+    expect(result).toBe(true);
+  });
+
+  it('should return false if one number is missing from drawnNumbersSet', () => {
+    // Given: A grid and a Set missing one number from the grid
+    const allNumbers = flattenGrid(sampleGrid);
+    const drawnNumbersSet = new Set(allNumbers);
+    drawnNumbersSet.delete(sampleGrid.B[0]); // Remove the first B number
+    
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(sampleGrid, drawnNumbersSet);
+    
+    // Then: It should return false
+    expect(result).toBe(false);
+  });
+
+  it('should return false if multiple numbers are missing from drawnNumbersSet', () => {
+    // Given: A grid and a Set missing several numbers
+    const drawnNumbersSet = new Set([sampleGrid.B[0], sampleGrid.I[1], sampleGrid.G[2], sampleGrid.O[3]]);
+    
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(sampleGrid, drawnNumbersSet);
+    
+    // Then: It should return false
+    expect(result).toBe(false);
+  });
+
+  it('should return false if drawnNumbersSet is empty', () => {
+    // Given: A grid and an empty Set
+    const drawnNumbersSet = new Set();
+    
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(sampleGrid, drawnNumbersSet);
+    
+    // Then: It should return false
+    expect(result).toBe(false);
+  });
+  
+  it('should return false if drawnNumbersSet contains numbers not on the card but misses some card numbers', () => {
+    // Given: A grid and a Set with extra numbers but missing some grid numbers
+    const allNumbers = flattenGrid(sampleGrid);
+    const drawnNumbersSet = new Set(allNumbers);
+    drawnNumbersSet.delete(sampleGrid.N[4]); // Remove a number
+    drawnNumbersSet.add(100); // Add an extra number not on the card
+    drawnNumbersSet.add(200);
+    
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(sampleGrid, drawnNumbersSet);
+    
+    // Then: It should return false because a card number is missing
+    expect(result).toBe(false);
+  });
+
+  it('should return true even if drawnNumbersSet contains extra numbers not on the card, as long as all card numbers ARE present', () => {
+    // Given: A grid and a Set containing all grid numbers PLUS extra numbers
+    const allNumbers = flattenGrid(sampleGrid);
+    const drawnNumbersSet = new Set(allNumbers);
+    drawnNumbersSet.add(100); // Add extra numbers
+    drawnNumbersSet.add(200);
+    
+    // When: checkFullCardWin is called
+    const result = checkFullCardWin(sampleGrid, drawnNumbersSet);
+    
+    // Then: It should return true because all required numbers are present
+    expect(result).toBe(true);
   });
 });

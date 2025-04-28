@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from 'vitest';
 import request from 'supertest';
-import app from './index';
 
 // Define mocks for the functions we expect utils to export
 const mockFetchTx = vi.fn();
@@ -20,7 +19,12 @@ vi.mock('./utils', () => ({
   hashPublicKeyToNumber: vi.fn(() => 1), // Return minimal valid number
 }));
 
-describe('GET /api/cards', () => {
+// --- Test Suite Setup ---
+let app;
+let server; // Variable to hold the server instance for closing
+let gameStates; // Variable to hold the imported gameStates map
+
+describe('GET /api/cards/:txid/:nickname', () => {
   const testTxId = 'tx-simple-mock-test';
   const testNickname = 'Alice';
   const mockBlockHash = 'mockBlockHashABCDEF123';
@@ -36,25 +40,68 @@ describe('GET /api/cards', () => {
       { cardId: 'cardA2', lineIndex: 2, username: 'Alice', grid: {}}
   ];
   const expectedAliceCards = [mockAllCards[0], mockAllCards[2]]; // Filtered cards
+  
+  // Mock initial game state structure needed by the endpoint
+  const mockGameState = {
+      txid: testTxId,
+      status: 'initialized', 
+      blockHash: mockBlockHash,
+      participants: mockParticipants,
+      baseSeed: 'mockBaseSeedForCardsTest',
+      cards: mockAllCards, 
+      drawnNumbers: [],
+      drawSequence: [], 
+      nextDerivationIndex: 0, 
+      gmToken: 'mock-gm-token',
+      lastDrawTime: null,
+      gameMode: 'fullCardOnly',
+      partialWinOccurred: false,
+      partialWinners: null,
+      fullCardWinners: null,
+      isOver: false,
+      continueAfterPartialWin: false
+  };
 
-  beforeEach(() => {
-    // Reset mocks clears state like call counts and mock implementations set in tests
-    vi.resetAllMocks();
-    // Cannot reset gameSessionCache as it's internal to index.js
+  beforeAll(async () => {
+    // Dynamically import app, start server, and get gameStates map
+    const serverModule = await import('./index');
+    app = serverModule.app;
+    gameStates = serverModule.gameStates; // Get reference to the map
+    server = app.listen(0);
+    console.log(`[Test Server - cards.test.js] Started on port ${server.address().port}`);
   });
 
-  // No afterEach needed if beforeEach handles full reset
+  afterAll(async () => {
+    // Close the server after all tests in this suite are done
+    await new Promise(resolve => server.close(resolve));
+    console.log(`[Test Server - cards.test.js] Closed.`);
+    // Clear gameStates just in case (though Vitest isolates environments usually)
+    if (gameStates) gameStates.clear();
+  });
 
-  it('should return cards for a valid nickname (cache miss path)', async () => {
-    // --- Given ---
-    // Configure mock implementations for this specific test
+  beforeEach(() => {
+    // Reset mocks before each test
+    vi.resetAllMocks();
+    // Restore mock implementations needed for most tests
     mockFetchTx.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
     mockGetParticipants.mockResolvedValue(mockParticipants);
     mockGenerateCards.mockReturnValue(mockAllCards);
+    // --- ADD prerequisite game state --- //
+    gameStates.set(testTxId, { ...mockGameState }); // Add the mock state needed by the endpoint
+  });
+
+  // afterEach is not strictly needed if beforeEach resets mocks and state
+
+  it('should return cards for a valid nickname', async () => {
+    // --- Given --- 
+    // Mocks set in beforeEach
+    // Game state set in beforeEach
+    expect(gameStates.has(testTxId)).toBe(true); // Verify prerequisite
 
     // --- When ---
-    const response = await request(app)
-      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
+    // Pass the server instance directly to supertest
+    const response = await request(server) // Use server instead of app
+      .get(`/api/cards/${testTxId}/${testNickname}`);
 
     // --- Then ---
     expect(response.status).toBe(200);
@@ -63,89 +110,57 @@ describe('GET /api/cards', () => {
       cards: expectedAliceCards, // Expect only Alice's cards
       blockHash: mockBlockHash
     });
-    // Verify mocks were called correctly
-    expect(mockFetchTx).toHaveBeenCalledWith(testTxId);
-    expect(mockGetParticipants).toHaveBeenCalledWith(mockOpReturnHex);
-    expect(mockGenerateCards).toHaveBeenCalledWith(mockParticipants, mockBlockHash);
   });
 
   it('should return 404 if nickname is not found', async () => {
     // --- Given ---
     const nonExistentNickname = 'Charlie';
-    mockFetchTx.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex });
-    mockGetParticipants.mockResolvedValue(mockParticipants); // Alice & Bob returned
-    mockGenerateCards.mockReturnValue(mockAllCards); // Cards for Alice & Bob generated
+    // Game state set in beforeEach
+    expect(gameStates.has(testTxId)).toBe(true);
 
     // --- When ---
-    const response = await request(app)
-      .get(`/api/cards?txId=${testTxId}&nickname=${nonExistentNickname}`);
+    const response = await request(server)
+      .get(`/api/cards/${testTxId}/${nonExistentNickname}`);
 
     // --- Then ---
     expect(response.status).toBe(404);
     expect(response.body.error).toContain(`Nickname '${nonExistentNickname}' not found`);
-    // Check mocks were still called up to the filtering stage
-    expect(mockFetchTx).toHaveBeenCalledTimes(1);
-    expect(mockGetParticipants).toHaveBeenCalledTimes(1);
-    expect(mockGenerateCards).toHaveBeenCalledTimes(1);
+    // Mocks should NOT have been called because the endpoint returns early after finding the game state
+    expect(mockFetchTx).not.toHaveBeenCalled(); 
+    expect(mockGetParticipants).not.toHaveBeenCalled();
+    expect(mockGenerateCards).not.toHaveBeenCalled();
   });
 
   it('should return 400 if txId is missing', async () => {
-    const response = await request(app).get(`/api/cards?nickname=${testNickname}`);
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Transaction ID (txId) is required');
+    // Note: Testing missing path parameters with supertest usually results in 404, not 400.
+    // The framework handles the route matching before the handler logic.
+    // We will test the handler's internal validation logic separately if needed.
+    // For now, just ensure a malformed path gives 404.
+    const response = await request(server).get(`/api/cards//${testNickname}`); // Malformed path
+    expect(response.status).toBe(404);
   });
 
   it('should return 400 if nickname is missing', async () => {
-    const response = await request(app).get(`/api/cards?txId=${testTxId}`);
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Nickname is required');
+    // Similar to txId, missing nickname path param leads to 404.
+    const response = await request(server).get(`/api/cards/${testTxId}/`); // Malformed path
+    expect(response.status).toBe(404);
   });
 
-  it('should return 404 if fetchTxDataAndBlockHash throws "not found"', async () => {
+  it('should return 404 if game state does not exist (simulating fetch error)', async () => {
     // --- Given ---
-    const error = new Error('Transaction ID not found.');
-    mockFetchTx.mockRejectedValue(error);
+    const nonExistentTxId = 'tx-that-does-not-exist';
+    gameStates.delete(nonExistentTxId); // Ensure state is not present
+    // Mocks for underlying utils are irrelevant if game state check fails first
 
     // --- When ---
-    const response = await request(app)
-      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
+    const response = await request(server)
+      .get(`/api/cards/${nonExistentTxId}/${testNickname}`);
 
     // --- Then ---
     expect(response.status).toBe(404);
-    expect(response.body.error).toBe('Transaction ID not found.');
+    expect(response.body.error).toBe('Game state not found.');
+    expect(mockFetchTx).not.toHaveBeenCalled();
     expect(mockGetParticipants).not.toHaveBeenCalled();
-    expect(mockGenerateCards).not.toHaveBeenCalled();
-  });
-  
-  it('should return 400 if fetchTxDataAndBlockHash throws "not confirmed"', async () => {
-    // --- Given ---
-    const error = new Error('Transaction is not yet confirmed in a block.');
-    mockFetchTx.mockRejectedValue(error);
-
-    // --- When ---
-     const response = await request(app)
-      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
-
-    // --- Then ---
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Transaction is not yet confirmed in a block.');
-    expect(mockGetParticipants).not.toHaveBeenCalled();
-    expect(mockGenerateCards).not.toHaveBeenCalled();
-  });
-
-  it('should return 500 if getParticipantsFromOpReturn throws error', async () => {
-    // --- Given ---
-    const error = new Error('Failed to retrieve participant list from IPFS.');
-    mockFetchTx.mockResolvedValue({ blockHash: mockBlockHash, opReturnHex: mockOpReturnHex }); // Step 1 succeeds
-    mockGetParticipants.mockRejectedValue(error); // Step 2 fails
-
-    // --- When ---
-    const response = await request(app)
-      .get(`/api/cards?txId=${testTxId}&nickname=${testNickname}`);
-
-    // --- Then ---
-    expect(response.status).toBe(500);
-    expect(response.body.error).toContain('Failed to retrieve or process participant list');
     expect(mockGenerateCards).not.toHaveBeenCalled();
   });
 

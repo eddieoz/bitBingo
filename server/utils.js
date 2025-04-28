@@ -458,6 +458,21 @@ function calculateMaxMarkedInLine(grid, drawnNumbers) {
  * @returns {Array<number|null>|null} The winning line (sequence of numbers/null) if a win exists, otherwise null.
  */
 function checkLineWin(grid, drawnNumbersSet) {
+  // --- Refined Guard Clause --- //
+  const isValidGrid = grid && 
+                      typeof grid === 'object' && 
+                      Array.isArray(grid.B) && grid.B.length === 5 &&
+                      Array.isArray(grid.I) && grid.I.length === 5 &&
+                      Array.isArray(grid.N) && grid.N.length === 5 &&
+                      Array.isArray(grid.G) && grid.G.length === 5 &&
+                      Array.isArray(grid.O) && grid.O.length === 5;
+
+  if (!isValidGrid || !drawnNumbersSet || !(drawnNumbersSet instanceof Set)) {
+    console.warn('[Win Check] Invalid input provided to checkLineWin (Grid structure or Set invalid).');
+    return null;
+  }
+  // --- End Guard Clause ---
+
   console.log(`[Win Check] Checking for line win... Drawn count: ${drawnNumbersSet.size}`);
 
   const B = grid.B;

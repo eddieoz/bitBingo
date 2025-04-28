@@ -635,83 +635,99 @@ app.post('/api/continue-game/:txid', (req, res) => {
 });
 
 // --- 4. Get Game State (Player & GM) ---
-app.get('/api/game-state/:txid', async (req, res) => {
+app.get('/api/game-state/:txid', (req, res) => {
   const { txid } = req.params;
-  const { gm } = req.query; // Check for ?gm=true query param
-  const isGMRequest = gm === 'true';
-
-  // console.log(`[State] Request for game ${txid}${isGMRequest ? ' (GM)' : ''}`);
+  const isGmRequest = req.query.gm === 'true'; // Simpler GM check via query param for polling
+  console.log(`[State] Request for game state: ${txid}, Is GM Request: ${isGmRequest}`);
 
   const gameState = gameStates.get(txid);
 
   if (!gameState) {
-    console.warn(`[State] Game state not found for ${txid}`);
+    console.error(`[State] Game state not found for ${txid}`);
     return res.status(404).json({ message: 'Game not found.' });
   }
 
-  // Use the refactored function
+  // Calculate statistics 
   const statistics = calculateStatistics(gameState);
 
-  res.status(200).json({
-    status: gameState.status,
+  // Base response object (player view)
+  const responseBody = {
     drawnNumbers: gameState.drawnNumbers,
-    drawSequenceLength: gameState.drawSequence.length,
-    lastDrawTime: gameState.lastDrawTime,
     isOver: gameState.isOver,
     gameMode: gameState.gameMode,
     partialWinOccurred: gameState.partialWinOccurred,
     partialWinners: gameState.partialWinners,
     fullCardWinners: gameState.fullCardWinners,
-    continueAfterPartialWin: gameState.continueAfterPartialWin,
     statistics: statistics
-  });
+  };
+
+  // Add GM-specific fields if requested
+  if (isGmRequest) {
+    // Simple check: Could verify token here if needed
+    responseBody.continueAfterPartialWin = gameState.continueAfterPartialWin;
+    console.log(`[State] GM requested state for ${txid}, adding extra fields.`);
+  } else {
+    console.log(`[State] Player requested state for ${txid}.`);
+  }
+
+  return res.status(200).json(responseBody);
 });
 
 
 // --- 5. Get Player Cards --- 
 app.get('/api/cards/:txid/:nickname', (req, res) => {
   const { txid, nickname } = req.params;
-  
   console.log(`[Cards] Request for player '${nickname}' in game ${txid}`);
+
+  // Validate input
+  if (!txid || !nickname) {
+      // This case is less likely with path params but good practice
+      return res.status(400).json({ error: 'Missing txid or nickname in path.'});
+  }
 
   const gameState = gameStates.get(txid);
 
   if (!gameState) {
-    console.warn(`[Cards] Game state not found for ${txid}`);
-    return res.status(404).json({ message: 'Game not found.' });
+    console.error(`[Cards] Game state not found for ${txid}`);
+    // Return consistent error format
+    return res.status(404).json({ error: 'Game state not found.' });
   }
 
-  if (!gameState.cards || gameState.cards.length === 0) {
-      console.error(`[Cards] No cards found in game state for ${txid}`);
-      return res.status(404).json({ message: 'No cards generated for this game yet.' });
-  }
-
-  // Find cards matching the nickname (case-insensitive comparison)
-  const playerCards = gameState.cards.filter(card => 
-    card.username.toLowerCase() === nickname.toLowerCase()
+  // Filter cards for the specific nickname (case-insensitive)
+  const userCards = gameState.cards.filter(
+    card => card.username.toLowerCase() === nickname.toLowerCase()
   );
 
-  if (playerCards.length === 0) {
-    console.warn(`[Cards] No cards found for nickname '${nickname}' in game ${txid}`);
-    return res.status(404).json({ message: 'Nickname not found in participant list for this game.' });
+  if (userCards.length === 0) {
+    console.error(`[Cards] No cards found for nickname '${nickname}' in game ${txid}`);
+    // Return consistent error format
+    return res.status(404).json({ error: `Nickname '${nickname}' not found in participant list for this game.` });
   }
 
-  console.log(`[Cards] Found ${playerCards.length} card(s) for '${nickname}' in game ${txid}`);
-  res.status(200).json({ cards: playerCards }); 
+  console.log(`[Cards] Found ${userCards.length} card(s) for '${nickname}' in game ${txid}`);
+  // Return the success format expected by tests
+  res.status(200).json({
+    status: 'success',
+    cards: userCards,
+    blockHash: gameState.blockHash // Include blockHash
+  });
 });
 
 // ======================================================
 // ==                Server Start                      ==
 // ======================================================
 
-app.listen(PORT, () => {
-  console.log(`BitBingo Server listening on port ${PORT}`);
-  console.log(`Uploads directory: ${UPLOADS_DIR}`);
-  // Log environment variables being used (optional, for debugging)
-  console.log(`BLOCKCYPHER_API_BASE_URL: ${process.env.BLOCKCYPHER_API_BASE_URL || 'Default (Blockcypher v1)'}`);
-  console.log(`PINATA_PUBLIC_GATEWAY_BASE: ${process.env.PINATA_PUBLIC_GATEWAY_BASE || 'Default (ipfs.io)'}`);
-  console.log(`BLOCKCYPHER_NETWORK: ${process.env.BLOCKCYPHER_NETWORK || 'Default (main)'}`);
-});
+// Only start listening if the script is run directly
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`BitBingo Server listening on port ${PORT}`);
+    console.log(`Uploads directory: ${UPLOADS_DIR}`);
+    // Log environment variables being used (optional, for debugging)
+    console.log(`BLOCKCYPHER_API_BASE_URL: ${process.env.BLOCKCYPHER_API_BASE_URL || 'Default (Blockcypher v1)'}`);
+    console.log(`PINATA_PUBLIC_GATEWAY_BASE: ${process.env.PINATA_PUBLIC_GATEWAY_BASE || 'Default (ipfs.io)'}`);
+    console.log(`BLOCKCYPHER_NETWORK: ${process.env.BLOCKCYPHER_NETWORK || 'Default (main)'}`);
+  });
+}
 
 // Export the app and gameStates for testing or direct use
-module.exports = { app, gameStates };
+module.exports = { app, gameStates, uploadDir: UPLOADS_DIR }; // Also export uploadDir if needed by tests

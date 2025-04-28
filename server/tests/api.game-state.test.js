@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from 'vitest';
 import request from 'supertest';
 // import app from '../index'; // Delay import
 // No longer mocking utils for this test file
@@ -15,6 +15,7 @@ import request from 'supertest';
 
 // --- Test Suite ---
 let app;
+let server; // Variable to hold the server instance
 let gameStates;
 
 describe('GET /api/game-state/:txid', () => {
@@ -41,26 +42,41 @@ describe('GET /api/game-state/:txid', () => {
         lastDrawTime: new Date(Date.now() - 10000).toISOString(), 
         creationTime: Date.now() - 20000,
         isOver: false, 
-        winners: [] 
+        gameMode: 'partialAndFull',
+        partialWinOccurred: false,
+        partialWinners: null,
+        fullCardWinners: null,
+        continueAfterPartialWin: false
     };
     // Calculate the expected stats based on the actual function and initialGameState
     const expectedStatsString = "No players have 2 or more marks in a line yet."; // Max marks = 1 (free space)
 
-    beforeEach(async () => {
-        // REMOVED: Mock setup
-        // vi.mocked(utils.calculateMaxMarkedInLine).mockReturnValue(3); 
-
-        // Dynamically import app and gameStates 
+    beforeAll(async () => {
+        // Dynamically import app, start server, get gameStates map
         const serverModule = await import('../index');
         app = serverModule.app;
-        gameStates = serverModule.gameStates; 
+        gameStates = serverModule.gameStates;
+        server = app.listen(0); // Start on random port
+        console.log(`[Test Server - api.game-state.test.js] Started on port ${server.address().port}`);
+    });
+
+    afterAll(async () => {
+        // Close the server after all tests in this suite are done
+        await new Promise(resolve => server.close(resolve));
+        console.log(`[Test Server - api.game-state.test.js] Closed.`);
+        if (gameStates) gameStates.clear();
+    });
+
+    beforeEach(async () => {
+        // REMOVED dynamic import from here
+        // Reset game state before each test
         gameStates.clear();
-        
-        gameStates.set(testTxid, { ...initialGameState }); 
+        // Use a deep copy of initialGameState to avoid mutations between tests
+        gameStates.set(testTxid, JSON.parse(JSON.stringify(initialGameState)));
     });
 
     afterEach(() => {
-        vi.restoreAllMocks(); // Still useful if other tests add spies
+        // REMOVED vi.restoreAllMocks(); - Not using mocks here anymore
     });
 
     it('Story: Get State (Player)', async () => {
@@ -68,7 +84,7 @@ describe('GET /api/game-state/:txid', () => {
         // Game state is set in beforeEach
 
         // --- When ---
-        const response = await request(app)
+        const response = await request(server) // Use server
             .get(`/api/game-state/${testTxid}`)
             .send();
 
@@ -76,16 +92,18 @@ describe('GET /api/game-state/:txid', () => {
         expect(response.status).toBe(200);
 
         expect(response.body).toEqual(expect.objectContaining({
-            status: initialGameState.status,
             drawnNumbers: initialGameState.drawnNumbers,
-            drawSequenceLength: initialGameState.drawSequence.length, 
-            lastDrawTime: initialGameState.lastDrawTime, 
             isOver: initialGameState.isOver,
-            winners: initialGameState.winners,
-            statistics: expectedStatsString // Assert the actual calculated stats string
+            gameMode: initialGameState.gameMode,
+            partialWinOccurred: initialGameState.partialWinOccurred,
+            partialWinners: initialGameState.partialWinners,
+            fullCardWinners: initialGameState.fullCardWinners,
+            statistics: expect.any(String)
         }));
-        // REMOVED: Mock assertion
-        // expect(utils.calculateMaxMarkedInLine).toHaveBeenCalled();
+        // Check specific fields if needed outside objectContaining
+        expect(response.body.statistics).toEqual(expectedStatsString);
+        // Ensure fields specific to GM view are NOT present
+        expect(response.body).not.toHaveProperty('continueAfterPartialWin');
     });
 
     it('Story: Get State (GM)', async () => {
@@ -94,32 +112,35 @@ describe('GET /api/game-state/:txid', () => {
         // REMOVED: utils.calculateMaxMarkedInLine is NOT mocked anymore
 
         // --- When ---
-        const response = await request(app)
+        const response = await request(server) // Use server
             .get(`/api/game-state/${testTxid}?gm=true`) 
             .send();
 
         // --- Then ---
         expect(response.status).toBe(200);
         expect(response.body).toEqual(expect.objectContaining({
-            status: initialGameState.status,
             drawnNumbers: initialGameState.drawnNumbers,
-            drawSequenceLength: initialGameState.drawSequence.length, 
-            lastDrawTime: initialGameState.lastDrawTime, 
             isOver: initialGameState.isOver,
-            winners: initialGameState.winners,
-            statistics: expectedStatsString // Assert the actual calculated stats string
+            gameMode: initialGameState.gameMode,
+            partialWinOccurred: initialGameState.partialWinOccurred,
+            partialWinners: initialGameState.partialWinners,
+            fullCardWinners: initialGameState.fullCardWinners,
+            continueAfterPartialWin: initialGameState.continueAfterPartialWin,
+            statistics: expect.any(String)
         }));
-        // REMOVED: Mock assertion
-        // expect(utils.calculateMaxMarkedInLine).toHaveBeenCalledTimes(initialGameState.cards.length);
+        // Check specific fields if needed outside objectContaining
+        expect(response.body.statistics).toEqual(expectedStatsString);
     });
 
     it('Story: Get State for Non-existent Game', async () => {
         // --- Given ---
         const nonExistentTxid = 'txid-does-not-exist';
+        // Ensure state is clear
+        gameStates.delete(nonExistentTxid);
         expect(gameStates.has(nonExistentTxid)).toBe(false);
 
         // --- When ---
-        const response = await request(app)
+        const response = await request(server) // Use server
             .get(`/api/game-state/${nonExistentTxid}`)
             .send();
 
