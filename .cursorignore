@@ -99,3 +99,7 @@ logs/
 # All environment files (simplified)
 .env*
 !.env.example
+
+.pnpm-store/
+.pnpm-lock.yaml
+pnpm-lock.yaml
