@@ -2,10 +2,10 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import type { BingoGrid, ApiCardResponse } from '@/lib/types'; // Assuming path
+import type { BingoCardGrid, ApiCardResponse } from '@/types';
 
 // Placeholder grid generation (should be replaced by actual deterministic logic on backend)
-function generatePlaceholderGrid(startNum = 1): BingoGrid {
+function generatePlaceholderGrid(startNum = 1): BingoCardGrid {
     const grid: any[][] = [];
     const ranges = [15, 30, 45, 60, 75]; // B I N G O
     let currentNumber = startNum;
@@ -23,8 +23,14 @@ function generatePlaceholderGrid(startNum = 1): BingoGrid {
       }
       grid.push(column);
     }
-    // Ensure the grid type matches BingoGrid explicitly
-    return grid as BingoGrid;
+    // Return as BingoCardGrid object
+    return {
+      B: grid[0],
+      I: grid[1],
+      N: grid[2],
+      G: grid[3],
+      O: grid[4],
+    };
 }
 
 export async function GET(request: NextRequest) {

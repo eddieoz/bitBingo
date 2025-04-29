@@ -42,19 +42,12 @@ function getBingoLetter(num: number): string {
   return '?';
 }
 
-// Define props for the page, including txid
-interface PlayPageProps {
-  params: { 
-     txid: string;
-  }
-}
-
 // Use imported UserSession type
 // interface UserSession { ... } // Removed local definition
 
 // Update component definition to accept props
-export default function PlayPage({ params }: PlayPageProps) {
-  const { txid } = params;
+export default function PlayPage({ params }: { params: Promise<{ txid: string }> }) {
+  const { txid } = use(params);
   
   const queryClient = useQueryClient();
   const [userSession, setUserSession] = useState<UserSession | null>(null);

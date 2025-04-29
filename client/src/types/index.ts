@@ -48,4 +48,9 @@ export interface GameState {
 export interface UserSession {
   nickname: string;
   cards: UserCardData[];
+}
+
+export interface ApiCardResponse {
+  cardIndex: number;
+  grid: BingoCardGrid;
 } 

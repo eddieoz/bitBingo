@@ -150,7 +150,7 @@ const TransactionCreator = ({
               <Card.Body>
                 <Card.Title>Create Transaction Instructions</Card.Title>
                 <p className="small">
-                  For security, this app doesn't handle private keys or create transactions. 
+                  For security, this app doesn&apos;t handle private keys or create transactions. 
                   Please follow these steps:
                 </p>
                 <ol className="small">
