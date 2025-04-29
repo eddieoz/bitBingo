@@ -20,3 +20,4 @@ services:
       # Example: NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true # Often needed for hot-reloading within Docker
     command: sh -c "pnpm install && pnpm start"
+      - NODE_ENV=production

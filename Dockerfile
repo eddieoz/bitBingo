@@ -25,5 +25,7 @@ COPY . .
 # Make port 3000 available (client)
 EXPOSE 5000 3000
 
+ENV NODE_ENV=production
+
 # Define the command to run the app using the start script from package.json
 CMD [ "pnpm", "start" ] 
