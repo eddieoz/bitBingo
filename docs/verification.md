@@ -24,16 +24,16 @@ The following are valid, real data you can use to manually verify the process de
 - **Valid drawn numbers:**
   - `I27 B15 O61 I28 I29 B10 N45 O74 O65 G51 N38 N43 B11 G55 N33 O68 N37 N34 B1 O71 N31 G56 B14 O67 N35 G48 G47 B3 B7 O66 O64 I30 I19 I23 G58 B4 I24 I26 G46 G60 I20 O72 N42 I25 O63 G54 B9 G53 N40 N44 N39 B5 N41 B8 G57 O70 O69 O75 N32 B6 G50 I18 G49 N36 G52 G59 I21 O62 I16`
 - **Valid derivations:**
-    - `m/44'/0'/0'/0/0`       `0221f19d6298f375ef4b2f829fbe479567d2a186aabef4f7790d7a73d32ff68145`
-    - `m/44'/0'/0'/0/1`       `024942fcbb9b222a30c62e121438eba0153bfef15aa285ed3693d025523ef8897a`
-    - `m/44'/0'/0'/0/2`       `030c03062f9ff15cfb9b355f470dfd45066e64a4e5ea2f03e41039fe4a07c21f80`
-    - `m/44'/0'/0'/0/3`       `031ef24f30ffddfae19b6529ce51034a29a8a224cdcaab57d13114c3e4077cb686`
-    - `m/44'/0'/0'/0/4`       `0281b9d9493eba7a42b2a701112aefed45216eff22141a36fceec0894afb6a5443`
-    - `m/44'/0'/0'/0/5`       `03f1d762518e143589c605ae1bf80f292ce855834ada0e9857cef0d9abb9a5edbb`
-    - `m/44'/0'/0'/0/6`       `030a2ae8b234e8d1d0cf57911ab2be604a3e450fa2ed1fab82f1fdf1258a70eb45`
-    - `m/44'/0'/0'/0/7`       `02c934139df7611fcd14b33d03a034fdc7d17229daa7e226bb8dc963a123963abe`
-    - `m/44'/0'/0'/0/8`       `0290eb5df27827e05a804abba54da3a431d2f6bc7de63de4ebda1c276390178c75`
-    - `m/44'/0'/0'/0/9`       `03b2172ed0de54c28824d9a8dd27d59846269616b541f5d1f4df5254fd4639f0ee`
+    - `m/44'/0'/0'/0/0`       `03e3de2254964f167e1d52ad4afda827fb3c8934447c34fa36c5dac678d3c53754`
+    - `m/44'/0'/0'/0/1`       `0261f7f5a5b0a62f8b026d18b5809d9babd4cd37e812d20ee025afb7afee8352a9`
+    - `m/44'/0'/0'/0/2`       `0375d5d96462c6c5647d7db8d40096f2e605fb5eb3e23b958bc4b18f30ccca403e`
+    - `m/44'/0'/0'/0/3`       `02f92ba44203b493e90af226715eaec7b59d4024be8a347e26217a705445f9f0ba`
+    - `m/44'/0'/0'/0/4`       `02bff67018db7ae830b3142d261dfe7adb87241b6479ac33645cd86f02009b40f8`
+    - `m/44'/0'/0'/0/5`       `0260b064e3b1b4e50a5efc7e66be4fc078dc84a06b94cb14f00bf35e9a4e2c5abd`
+    - `m/44'/0'/0'/0/6`       `039d957e413a61eb41999ab56af829ad9772ef852aebad41a1ab65e34234165534`
+    - `m/44'/0'/0'/0/7`       `0275d4e8e39fe559172daa069fd67ff9e84c5c655a4d5cfe58ea78811e58565c58`
+    - `m/44'/0'/0'/0/8`       `02ade18d9f8234cca31664d28e24c157f6e78e73d7091eb3209cab20f00522135f`
+    - `m/44'/0'/0'/0/9`       `03e68b219528d0920fb93deed6e511c8d1f27fa27ad7259569921b262f4866ed29`
 - **Valid CSV:** See `sample-tickets.csv` in the project root.
 
 ## Deterministic Game Logic
