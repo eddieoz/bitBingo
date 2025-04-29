@@ -18,6 +18,12 @@ COPY server/package.json ./server/
 # Install all dependencies (root, client, server) using pnpm
 RUN pnpm install --frozen-lockfile
 
+# Build the client for production
+RUN cd client && pnpm build
+
+# Remove dev dependencies and caches (optional, for smaller image)
+RUN pnpm prune --prod
+
 # Copy the rest of the application code
 COPY . .
 
@@ -25,7 +31,9 @@ COPY . .
 # Make port 3000 available (client)
 EXPOSE 5000 3000
 
-ENV NODE_ENV=production
-
 # Define the command to run the app using the start script from package.json
-CMD [ "pnpm", "start" ] 
+# CMD [ "pnpm", "start" ] 
+
+ENV NODE_ENV=production
+# Start both server and client in production mode
+CMD ["sh", "-c", "pnpm --filter ./server start & pnpm --filter ./client start"] 
