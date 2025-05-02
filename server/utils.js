@@ -236,10 +236,11 @@ async function getParticipantsFromOpReturn(opReturnHex) {
     let participants = await csvtojson({ 
         output: "json"
     }).fromString(csvData);
-     participants = participants.map((p, i) => ({
-       ...p,
-       ticket: (i + 1).toString() // Add 1-based ticket number
-     }));
+    participants = standardizeParticipantObject(participants);
+    participants = participants.map((p, i) => ({
+      ...p,
+      ticket: (i + 1).toString() // Add 1-based ticket number
+    }));
     console.log(`[Utils] Successfully parsed ${participants.length} participants after handling header.`);
     return participants;
   } catch (ipfsError) {
@@ -247,6 +248,19 @@ async function getParticipantsFromOpReturn(opReturnHex) {
     const errorDetail = ipfsError.response?.status === 404 ? 'File not found at IPFS URL.' : 'Could not fetch or parse CSV file from IPFS.';
     throw new Error(`Failed to retrieve participant list from IPFS: ${errorDetail}`);
   }
+}
+
+/**
+ * Standardizes participant objects to ensure they have a consistent format with a 'name' property.
+ * Takes the first property value from each participant object and assigns it as the name.
+ * 
+ * @param {Array<Object>} participants - Array of participant objects from CSV parsing.
+ * @returns {Array<{name: string}>} Array of standardized participant objects with name property.
+ */
+function standardizeParticipantObject(participants) {
+  return participants.map(participant => ({
+    name: participant[Object.keys(participant)[0]]
+  }));
 }
 
 /**
@@ -555,5 +569,6 @@ module.exports = {
   countMarkedDrawnNumbers,
   calculateMaxMarkedInLine,
   checkLineWin,
-  checkFullCardWin
+  checkFullCardWin,
+  standardizeParticipantObject
 }; 

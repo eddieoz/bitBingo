@@ -5,6 +5,7 @@ import { hashPublicKeyToNumber } from '../utils'; // Import the function to test
 import { generateAllCards } from '../utils'; // Import the function to test
 import { calculateMaxMarkedInLine } from '../utils'; // Import the function to test
 import { checkLineWin, checkFullCardWin } from '../utils'; // Import the win condition functions
+import { standardizeParticipantObject } from '../utils';
 
 describe('derivePublicKey', () => {
   it('should return the correct public key for a given seed hash and index', () => {
@@ -552,5 +553,11 @@ describe('checkFullCardWin', () => {
     const result = checkFullCardWin(card.grid, drawnNumbersSet);
     // Then: It should return true
     expect(result).toBe(true);
+  });
+
+  it('should standardize the participant object to always have name as the participant name', () => {
+    let participants = [{ 'foo bar': 'baz' }];
+    participants = standardizeParticipantObject(participants);
+    expect(participants[0].name).toBe('baz');
   });
 });
