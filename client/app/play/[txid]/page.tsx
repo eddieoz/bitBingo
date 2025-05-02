@@ -7,6 +7,7 @@ import UserCardsDisplay from '../../../src/components/user-cards-display/UserCar
 import type { UserCardData, GameState, UserSession, GameStateStat, WinnerInfo } from '@/types/index';
 import axios from 'axios';
 import { Container, Alert, Badge, Button } from 'react-bootstrap';
+import { UserSession } from '@/types'; // Ensure UserSession is imported
 
 // API fetch function (always fetch as non-GM)
 const fetchGameState = async (txid: string): Promise<GameState> => {
@@ -46,8 +47,8 @@ function getBingoLetter(num: number): string {
 // interface UserSession { ... } // Removed local definition
 
 // Update component definition to accept props
-export default function PlayPage({ params }: { params: Promise<{ txid: string }> }) {
-  const { txid } = use(params);
+export default function PlayPage({ params }: { params: { txid: string } }) {
+  const { txid } = params;
   
   const queryClient = useQueryClient();
   const [userSession, setUserSession] = useState<UserSession | null>(null);
