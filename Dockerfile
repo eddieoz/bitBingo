@@ -8,7 +8,7 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Copy root package manifest and lockfile
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Copy client and server package manifests
 # This helps pnpm understand the workspace structure implicitly
@@ -18,14 +18,11 @@ COPY server/package.json ./server/
 # Install all dependencies (root, client, server) using pnpm
 RUN pnpm install --frozen-lockfile
 
-# Build the client for production
-RUN cd client && pnpm build
-
-# Remove dev dependencies and caches (optional, for smaller image)
-RUN pnpm prune --prod
-
 # Copy the rest of the application code
 COPY . .
+
+# Build the client for production
+RUN pnpm --filter ./client build
 
 # Make port 5000 available (server)
 # Make port 3000 available (client)
