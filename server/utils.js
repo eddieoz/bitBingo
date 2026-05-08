@@ -14,8 +14,11 @@ require('dotenv').config({ path: path.resolve(__dirname, './.env') }); // Ensure
 
 // Environment variables (Consider moving config to a dedicated file later)
 const PINATA_PUBLIC_GATEWAY_BASE = process.env.PINATA_PUBLIC_GATEWAY_BASE || 'https://ipfs.io/ipfs';
-const BLOCKCYPHER_API_BASE_URL = process.env.BLOCKCYPHER_API_BASE_URL || 'https://api.blockcypher.com/v1';
-const BLOCKCYPHER_NETWORK = process.env.BLOCKCYPHER_NETWORK || 'main';
+// Bitcoin blockchain API providers (tried in order, configurable via BITCOIN_API_ORDER)
+const MEMPOOL_API_BASE = process.env.MEMPOOL_API_BASE || 'https://mempool.space/api';
+const BLOCKSTREAM_API_BASE = process.env.BLOCKSTREAM_API_BASE || 'https://blockstream.info/api';
+const BLOCKCHAIN_INFO_API_BASE = process.env.BLOCKCHAIN_INFO_API_BASE || 'https://blockchain.info';
+const BITCOIN_API_TIMEOUT = parseInt(process.env.BITCOIN_API_TIMEOUT || '10000', 10);
 
 /**
  * Derives a BIP32 public key for a given seed hash and index.
@@ -166,46 +169,186 @@ function hashPublicKeyToNumber(publicKey) {
   }
 }
 
-// --- NEW Extracted Functions --- 
+// --- Bitcoin Blockchain API Providers ---
 
 /**
- * Fetches transaction data from BlockCypher, ensures it's confirmed,
- * and extracts the block hash and OP_RETURN data hex.
- * 
+ * Parses OP_RETURN data hex from a scriptpubkey hex string.
+ * Handles both BlockCypher format (raw data_hex) and
+ * mempool/blockstream format (6a + pushdata length + data).
+ *
+ * @param {string} scriptpubkeyHex - The scriptpubkey in hex.
+ * @returns {string} The OP_RETURN data as hex.
+ */
+function parseOpReturnHex(scriptpubkeyHex) {
+  if (!scriptpubkeyHex || typeof scriptpubkeyHex !== 'string') {
+    throw new Error('Invalid scriptpubkey hex.');
+  }
+  // BlockCypher/raw format: data already starts with the content (no 6a prefix)
+  if (!scriptpubkeyHex.startsWith('6a')) {
+    return scriptpubkeyHex;
+  }
+  // mempool/blockstream/blockchain.info format: 6a + pushdata_byte + data
+  // 6a = OP_RETURN, followed by 1-byte length (for data <= 75 bytes)
+  // or OP_PUSHDATA1 (4c) + 1-byte length, or OP_PUSHDATA2 (4d) + 2-byte length
+  const hexAfterOpReturn = scriptpubkeyHex.slice(2); // strip '6a'
+  const firstByte = parseInt(hexAfterOpReturn.slice(0, 2), 16);
+
+  if (firstByte <= 75) {
+    // Direct push: next byte is length
+    return hexAfterOpReturn.slice(2);
+  } else if (firstByte === 0x4c) {
+    // OP_PUSHDATA1: next byte is length
+    const len = parseInt(hexAfterOpReturn.slice(2, 4), 16);
+    return hexAfterOpReturn.slice(4, 4 + len * 2);
+  } else if (firstByte === 0x4d) {
+    // OP_PUSHDATA2: next 2 bytes are length (LE)
+    const len = parseInt(hexAfterOpReturn.slice(4, 6) + hexAfterOpReturn.slice(2, 4), 16);
+    return hexAfterOpReturn.slice(6, 6 + len * 2);
+  }
+  throw new Error(`Cannot parse OP_RETURN pushdata: unexpected first byte 0x${firstByte.toString(16)}`);
+}
+
+/**
+ * Fetches transaction data from mempool.space API.
+ * Free, no API key required.
+ *
+ * @param {string} txId
+ * @returns {Promise<{blockHash: string, opReturnHex: string}>}
+ */
+async function fetchTxFromMempool(txId) {
+  const url = `${MEMPOOL_API_BASE}/tx/${txId}`;
+  console.log(`[Mempool] Fetching: ${url}`);
+  const response = await axios.get(url, { timeout: BITCOIN_API_TIMEOUT });
+  const data = response.data;
+
+  if (!data.status || !data.status.confirmed) {
+    throw new Error('Transaction not yet confirmed in a block (mempool).');
+  }
+  const blockHash = data.status.block_hash;
+
+  // Find OP_RETURN output
+  const opReturnVout = data.vout.find(o => o.scriptpubkey_type === 'op_return');
+  if (!opReturnVout) {
+    throw new Error('Transaction does not contain OP_RETURN data (mempool).');
+  }
+  const opReturnHex = parseOpReturnHex(opReturnVout.scriptpubkey);
+
+  return { blockHash, opReturnHex };
+}
+
+/**
+ * Fetches transaction data from blockstream.info (esplora) API.
+ * Free, no API key required.
+ *
+ * @param {string} txId
+ * @returns {Promise<{blockHash: string, opReturnHex: string}>}
+ */
+async function fetchTxFromBlockstream(txId) {
+  const url = `${BLOCKSTREAM_API_BASE}/tx/${txId}`;
+  console.log(`[Blockstream] Fetching: ${url}`);
+  const response = await axios.get(url, { timeout: BITCOIN_API_TIMEOUT });
+  const data = response.data;
+
+  if (!data.status || !data.status.confirmed) {
+    throw new Error('Transaction not yet confirmed in a block (blockstream).');
+  }
+  const blockHash = data.status.block_hash;
+
+  const opReturnVout = data.vout.find(o => o.scriptpubkey_type === 'op_return');
+  if (!opReturnVout) {
+    throw new Error('Transaction does not contain OP_RETURN data (blockstream).');
+  }
+  const opReturnHex = parseOpReturnHex(opReturnVout.scriptpubkey);
+
+  return { blockHash, opReturnHex };
+}
+
+/**
+ * Fetches transaction data from blockchain.info API.
+ * Requires 2 calls: tx (for block_height + OP_RETURN) → block (for block_hash).
+ * Free, no API key required. Different backend from mempool/blockstream.
+ *
+ * @param {string} txId
+ * @returns {Promise<{blockHash: string, opReturnHex: string}>}
+ */
+async function fetchTxFromBlockchainInfo(txId) {
+  // Step 1: Fetch transaction
+  const txUrl = `${BLOCKCHAIN_INFO_API_BASE}/rawtx/${txId}`;
+  console.log(`[BlockchainInfo] Fetching tx: ${txUrl}`);
+  const txResponse = await axios.get(txUrl, { timeout: BITCOIN_API_TIMEOUT });
+  const txData = txResponse.data;
+
+  if (!txData.block_height || txData.block_height <= 0) {
+    throw new Error('Transaction not yet confirmed in a block (blockchain.info).');
+  }
+
+  // Find OP_RETURN output
+  const opReturnOut = txData.out.find(o => o.type === 0 && o.script && o.script.startsWith('6a'));
+  if (!opReturnOut) {
+    throw new Error('Transaction does not contain OP_RETURN data (blockchain.info).');
+  }
+  const opReturnHex = parseOpReturnHex(opReturnOut.script);
+
+  // Step 2: Fetch block to get the block hash
+  const blockUrl = `${BLOCKCHAIN_INFO_API_BASE}/rawblock/${txData.block_height}`;
+  console.log(`[BlockchainInfo] Fetching block: ${blockUrl}`);
+  const blockResponse = await axios.get(blockUrl, { timeout: BITCOIN_API_TIMEOUT });
+  const blockData = blockResponse.data;
+
+  if (!blockData.hash) {
+    throw new Error('Failed to retrieve block hash from blockchain.info.');
+  }
+
+  return { blockHash: blockData.hash, opReturnHex };
+}
+
+/**
+ * Fetches transaction data from Bitcoin blockchain, extracts block hash and OP_RETURN.
+ * Tries multiple providers in order (configurable via BITCOIN_API_ORDER env var).
+ * Default order: mempool, blockstream, blockchain_info
+ *
  * @param {string} txId The transaction ID.
  * @returns {Promise<{blockHash: string, opReturnHex: string}>} The block hash and OP_RETURN hex.
- * @throws {Error} If TX not found, not confirmed, or missing OP_RETURN.
+ * @throws {Error} If all providers fail, TX not confirmed, or missing OP_RETURN.
  */
 async function fetchTxDataAndBlockHash(txId) {
-  const txApiUrl = `${BLOCKCYPHER_API_BASE_URL}/btc/${BLOCKCYPHER_NETWORK}/txs/${txId}`;
-  console.log(`[Utils] Fetching transaction: ${txApiUrl}`);
-  try {
-    const txResponse = await axios.get(txApiUrl);
-    const txData = txResponse.data;
+  // Provider order: configurable via BITCOIN_API_ORDER env var
+  const providerOrder = (process.env.BITCOIN_API_ORDER || 'mempool,blockstream,blockchain_info')
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
 
-    // Ensure transaction is confirmed
-    if (!txData.block_hash || txData.block_height === -1) {
-      throw new Error('Transaction is not yet confirmed in a block.');
+  const providers = {
+    mempool: fetchTxFromMempool,
+    blockstream: fetchTxFromBlockstream,
+    blockchain_info: fetchTxFromBlockchainInfo,
+  };
+
+  // Collect errors for meaningful reporting
+  const errors = [];
+
+  for (const name of providerOrder) {
+    const fn = providers[name];
+    if (!fn) {
+      console.warn(`[Utils] Unknown Bitcoin API provider: ${name}, skipping.`);
+      continue;
     }
-    const blockHash = txData.block_hash;
 
-    // Extract OP_RETURN data (hex representation of the string CID)
-    const opReturnOutputs = txData.outputs.filter(output => output.script_type === 'null-data');
-    if (opReturnOutputs.length === 0) {
-      throw new Error('Transaction does not contain OP_RETURN data.');
+    try {
+      console.log(`[Utils] Trying provider: ${name}`);
+      const result = await fn(txId);
+      console.log(`[Utils] Success via ${name}: blockHash=${result.blockHash.slice(0, 16)}...`);
+      return result;
+    } catch (err) {
+      const msg = `${name}: ${err.response?.status || ''} ${err.message}`;
+      console.warn(`[Utils] Provider ${name} failed: ${msg}`);
+      errors.push(msg);
     }
-    const opReturnHex = opReturnOutputs[0].data_hex;
-
-    return { blockHash, opReturnHex };
-
-  } catch (error) {
-    console.error(`[Utils] Error fetching/processing TX ${txId}:`, error.response?.data || error.message);
-    if (error.response && error.response.status === 404) {
-      throw new Error('Transaction ID not found.');
-    }
-    // Re-throw other errors or wrap them
-    throw new Error(`Failed to fetch or process transaction details: ${error.message}`);
   }
+
+  // All providers failed — throw with details
+  const detail = errors.map(e => `  - ${e}`).join('\n');
+  throw new Error(`Failed to fetch transaction ${txId} from all providers:\n${detail}`);
 }
 
 /**
@@ -562,6 +705,10 @@ module.exports = {
   generateBingoCard,
   hashPublicKeyToNumber,
   fetchTxDataAndBlockHash,
+  fetchTxFromMempool,
+  fetchTxFromBlockstream,
+  fetchTxFromBlockchainInfo,
+  parseOpReturnHex,
   getParticipantsFromOpReturn,
   generateAllCards,
   calculateNumbersNeededToWin,

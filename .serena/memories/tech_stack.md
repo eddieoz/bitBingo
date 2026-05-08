@@ -1,0 +1,5 @@
+- Backend: Node.js (Express), in-memory game state
+- Frontend: React (Create React App) - migrating to Next.js, Bootstrap UI
+- APIs/Services: IPFS (Pinata) for CSV storage, multi-provider Bitcoin data (mempool.space → blockstream.info → blockchain.info, fallback chain configurable via BITCOIN_API_ORDER env var)
+- Package Manager: pnpm workspaces (client/ and server/ sub-packages)
+- Build/Dev Tools: concurrently, dotenv, docker compose
